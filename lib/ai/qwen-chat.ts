@@ -6,11 +6,92 @@ import type { ToolDefinition } from "@/lib/agent/tool-definitions";
 // T2.1 — streamQwenWithTools：流式 tool_use 支持
 // ---------------------------------------------------------------------------
 
+export type OpenAIChatProviderName = "deepseek" | "qwen";
+
+export interface OpenAIChatProviderConfig {
+  name: OpenAIChatProviderName;
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+}
+
 export type QwenStreamChunk =
   | { type: "text_delta"; content: string }
   | { type: "tool_call_delta"; index: number; id?: string; name?: string; argumentsDelta?: string }
   | { type: "done" }
   | { type: "error"; message: string };
+
+function getDeepSeekBaseUrl() {
+  return (
+    process.env.DEEPSEEK_BASE_URL?.replace(/\/+$/, "") ??
+    "https://api.deepseek.com"
+  );
+}
+
+function getDeepSeekModel() {
+  return process.env.DEEPSEEK_MODEL ?? "deepseek-chat";
+}
+
+function getQwenBaseUrl() {
+  return (
+    process.env.QWEN_BASE_URL?.replace(/\/+$/, "") ??
+    "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  );
+}
+
+function getQwenModel() {
+  return process.env.QWEN_MODEL ?? "qwen3.6-plus";
+}
+
+export function resolveOpenAIChatProvider(): OpenAIChatProviderConfig | null {
+  const requested = process.env.AI_CHAT_PROVIDER?.trim().toLowerCase();
+
+  if (requested === "deepseek") {
+    return process.env.DEEPSEEK_API_KEY
+      ? {
+          name: "deepseek",
+          apiKey: process.env.DEEPSEEK_API_KEY,
+          baseUrl: getDeepSeekBaseUrl(),
+          model: getDeepSeekModel(),
+        }
+      : null;
+  }
+
+  if (requested === "qwen") {
+    return process.env.QWEN_API_KEY
+      ? {
+          name: "qwen",
+          apiKey: process.env.QWEN_API_KEY,
+          baseUrl: getQwenBaseUrl(),
+          model: getQwenModel(),
+        }
+      : null;
+  }
+
+  if (process.env.DEEPSEEK_API_KEY) {
+    return {
+      name: "deepseek",
+      apiKey: process.env.DEEPSEEK_API_KEY,
+      baseUrl: getDeepSeekBaseUrl(),
+      model: getDeepSeekModel(),
+    };
+  }
+
+  if (process.env.QWEN_API_KEY) {
+    return {
+      name: "qwen",
+      apiKey: process.env.QWEN_API_KEY,
+      baseUrl: getQwenBaseUrl(),
+      model: getQwenModel(),
+    };
+  }
+
+  return null;
+}
+
+export function isDirectChatEnabled() {
+  return Boolean(resolveOpenAIChatProvider());
+}
 
 /**
  * 以 SSE 流方式调用 Qwen chat/completions，支持 tool_use。
@@ -25,12 +106,10 @@ export async function* streamQwenWithTools(
     timeoutMs?: number;
   },
 ): AsyncGenerator<QwenStreamChunk> {
-  const baseUrl = getQwenBaseUrl();
-  const model = getQwenModel();
-  const apiKey = process.env.QWEN_API_KEY;
+  const provider = resolveOpenAIChatProvider();
 
-  if (!apiKey) {
-    yield { type: "error", message: "QWEN_API_KEY is not set" };
+  if (!provider) {
+    yield { type: "error", message: "OpenAI-compatible chat provider API key is not set" };
     return;
   }
 
@@ -40,14 +119,14 @@ export async function* streamQwenWithTools(
 
   let response: Response;
   try {
-    response = await fetch(`${baseUrl}/chat/completions`, {
+    response = await fetch(`${provider.baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${provider.apiKey}`,
       },
       body: JSON.stringify({
-        model,
+        model: provider.model,
         messages,
         tools,
         tool_choice: "auto",
@@ -68,7 +147,7 @@ export async function* streamQwenWithTools(
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    console.error(`[qwen-chat] HTTP ${response.status}:`, body.slice(0, 300));
+    console.error(`[${provider.name}-chat] HTTP ${response.status}:`, body.slice(0, 300));
     yield { type: "error", message: `HTTP ${response.status}: ${body.slice(0, 200)}` };
     return;
   }
@@ -113,8 +192,8 @@ export async function* streamQwenWithTools(
         // 检测 Qwen 流式 error 响应（如 400 invalid_parameter_error）
         const errorInfo = (chunk as { error?: { message?: string; code?: string } })?.error;
         if (errorInfo) {
-          console.error(`[qwen-chat] stream error: ${errorInfo.code ?? "unknown"}: ${(errorInfo.message ?? "").slice(0, 200)}`);
-          yield { type: "error", message: errorInfo.message ?? "qwen stream error" };
+          console.error(`[${provider.name}-chat] stream error: ${errorInfo.code ?? "unknown"}: ${(errorInfo.message ?? "").slice(0, 200)}`);
+          yield { type: "error", message: errorInfo.message ?? `${provider.name} stream error` };
           return;
         }
 
@@ -130,7 +209,7 @@ export async function* streamQwenWithTools(
         if (Array.isArray(delta.tool_calls)) {
           for (const tc of delta.tool_calls) {
             if (process.env.NODE_ENV === "development") {
-              console.debug(`[qwen-chat] tool_call_delta index=${tc.index} name=${tc.function?.name ?? ""} args=${(tc.function?.arguments ?? "").slice(0, 30)}`);
+              console.debug(`[${provider.name}-chat] tool_call_delta index=${tc.index} name=${tc.function?.name ?? ""} args=${(tc.function?.arguments ?? "").slice(0, 30)}`);
             }
             yield {
               type: "tool_call_delta",
@@ -173,21 +252,11 @@ type QwenChatResponse = {
 export interface QwenDirectChatResult {
   payload: ChatResponsePayload | null;
   debug: Record<string, unknown>;
-}
-
-function getQwenBaseUrl() {
-  return (
-    process.env.QWEN_BASE_URL?.replace(/\/+$/, "") ??
-    "https://dashscope.aliyuncs.com/compatible-mode/v1"
-  );
-}
-
-function getQwenModel() {
-  return process.env.QWEN_MODEL ?? "qwen3.6-plus";
+  provider?: OpenAIChatProviderName;
 }
 
 export function isQwenDirectEnabled() {
-  return Boolean(process.env.QWEN_API_KEY);
+  return isDirectChatEnabled();
 }
 
 function extractJsonObject(content: string) {
@@ -402,12 +471,14 @@ function summarizeRuntimePayload(runtimePayload: unknown) {
 export async function runQwenDirectChat(
   runtimePayload: unknown,
 ): Promise<QwenDirectChatResult> {
-  if (!isQwenDirectEnabled()) {
+  const provider = resolveOpenAIChatProvider();
+
+  if (!provider) {
     return {
       payload: null,
       debug: {
         enabled: false,
-        reason: "qwen_api_key_missing",
+        reason: "openai_compatible_api_key_missing",
       },
     };
   }
@@ -417,14 +488,14 @@ export async function runQwenDirectChat(
     { role: "user", content: buildUserPrompt(runtimePayload) },
   ];
 
-  const response = await fetch(`${getQwenBaseUrl()}/chat/completions`, {
+  const response = await fetch(`${provider.baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.QWEN_API_KEY}`,
+      Authorization: `Bearer ${provider.apiKey}`,
     },
     body: JSON.stringify({
-      model: getQwenModel(),
+      model: provider.model,
       messages,
       temperature: 0.25,
       max_tokens: 900,
@@ -440,9 +511,11 @@ export async function runQwenDirectChat(
         enabled: true,
         reason: "http_error",
         status: response?.status ?? null,
-        model: getQwenModel(),
+        provider: provider.name,
+        model: provider.model,
         runtime: summarizeRuntimePayload(runtimePayload),
       },
+      provider: provider.name,
     };
   }
 
@@ -454,10 +527,12 @@ export async function runQwenDirectChat(
       debug: {
         enabled: true,
         reason: "empty_content",
-        model: getQwenModel(),
+        provider: provider.name,
+        model: provider.model,
         usage: json?.usage ?? null,
         runtime: summarizeRuntimePayload(runtimePayload),
       },
+      provider: provider.name,
     };
   }
 
@@ -468,11 +543,13 @@ export async function runQwenDirectChat(
       debug: {
         enabled: true,
         reason: "json_not_found",
-        model: getQwenModel(),
+        provider: provider.name,
+        model: provider.model,
         preview: content.slice(0, 320),
         usage: json?.usage ?? null,
         runtime: summarizeRuntimePayload(runtimePayload),
       },
+      provider: provider.name,
     };
   }
 
@@ -486,7 +563,8 @@ export async function runQwenDirectChat(
         debug: {
           enabled: true,
           reason: "ok",
-          model: getQwenModel(),
+          provider: provider.name,
+          model: provider.model,
           usage: json?.usage ?? null,
           runtime: summarizeRuntimePayload(runtimePayload),
           responseSummary: {
@@ -495,6 +573,7 @@ export async function runQwenDirectChat(
             rewardCount: payload.rewardSignals.length,
           },
         },
+        provider: provider.name,
       };
     }
 
@@ -503,11 +582,13 @@ export async function runQwenDirectChat(
       debug: {
         enabled: true,
         reason: "schema_invalid",
-        model: getQwenModel(),
+        provider: provider.name,
+        model: provider.model,
         usage: json?.usage ?? null,
         runtime: summarizeRuntimePayload(runtimePayload),
         preview: jsonText.slice(0, 320),
       },
+      provider: provider.name,
     };
   } catch (error) {
     return {
@@ -515,12 +596,14 @@ export async function runQwenDirectChat(
       debug: {
         enabled: true,
         reason: "json_parse_error",
-        model: getQwenModel(),
+        provider: provider.name,
+        model: provider.model,
         error: error instanceof Error ? error.message : "unknown_parse_error",
         preview: jsonText.slice(0, 320),
         usage: json?.usage ?? null,
         runtime: summarizeRuntimePayload(runtimePayload),
       },
+      provider: provider.name,
     };
   }
 }

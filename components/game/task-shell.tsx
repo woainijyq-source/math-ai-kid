@@ -18,7 +18,7 @@ export function TaskShell({
   showHeader?: boolean;
 }) {
   return (
-    <section className="storybook-card sunrise-panel relative overflow-hidden rounded-[32px] px-4 py-4 md:px-6 md:py-6">
+    <section className="bp-panel relative overflow-hidden rounded-[36px] px-4 py-4 md:px-6 md:py-6">
       <div className="absolute right-6 top-4 h-20 w-20 rounded-full bg-white/30 blur-2xl" />
       <div className="relative">
         {showHeader ? (

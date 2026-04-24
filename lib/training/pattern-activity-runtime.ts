@@ -1,4 +1,5 @@
 import { PATTERN_RECOGNITION_CHALLENGE_BANK } from "@/content/goals/pattern-recognition-challenges";
+import { resolveOpenAIChatProvider } from "@/lib/ai/qwen-chat";
 import {
   getActivitySession,
   updateActivitySessionRuntime,
@@ -50,17 +51,6 @@ type GeneratorConstraints = {
   birthday?: string;
   difficultyLevel?: DifficultyLevelName;
 };
-
-function getQwenBaseUrl() {
-  return (
-    process.env.QWEN_BASE_URL?.replace(/\/+$/, "") ??
-    "https://dashscope.aliyuncs.com/compatible-mode/v1"
-  );
-}
-
-function getQwenModel() {
-  return process.env.QWEN_MODEL ?? "qwen3.6-plus";
-}
 
 function normalizeText(input: string): string {
   return input
@@ -589,8 +579,8 @@ function validateGeneratedSpec(
 async function requestGeneratedPatternChallengeSpec(
   constraints: GeneratorConstraints,
 ): Promise<GeneratedPatternChallengeSpec | undefined> {
-  const apiKey = process.env.QWEN_API_KEY;
-  if (!apiKey) return undefined;
+  const provider = resolveOpenAIChatProvider();
+  if (!provider) return undefined;
 
   const age = constraints.birthday ? calcAge(constraints.birthday) : undefined;
   const effectiveDifficulty = maxDifficulty(
@@ -632,14 +622,14 @@ async function requestGeneratedPatternChallengeSpec(
     2,
   );
 
-  const response = await fetch(`${getQwenBaseUrl()}/chat/completions`, {
+  const response = await fetch(`${provider.baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${provider.apiKey}`,
     },
     body: JSON.stringify({
-      model: getQwenModel(),
+      model: provider.model,
       response_format: { type: "json_object" },
       temperature: 0.8,
       max_tokens: 1000,

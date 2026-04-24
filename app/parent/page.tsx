@@ -114,13 +114,13 @@ function CollapsibleSection({
   return (
     <details
       open={defaultOpen}
-      className="rounded-2xl border border-border bg-white shadow-sm"
+      className="bp-panel rounded-[30px]"
     >
       <summary className="cursor-pointer list-none px-5 py-4">
         <p className="text-xs font-semibold uppercase tracking-widest text-accent">{kicker}</p>
         <p className="mt-1 text-base font-semibold text-foreground">{title}</p>
       </summary>
-      <div className="border-t border-border/70 px-5 py-5">{children}</div>
+      <div className="border-t border-white/70 px-5 py-5">{children}</div>
     </details>
   );
 }
@@ -187,17 +187,20 @@ export default function ParentPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#F0FDF4] via-[#F8FAFC] to-[#EFF6FF]">
-      <header className="flex items-center justify-between border-b border-border bg-white/90 px-6 py-4 backdrop-blur-sm">
-        <h1 className="text-lg font-bold text-foreground">家长简报</h1>
-        <Link href="/" className="text-sm text-accent underline">
+    <div className="brainplay-page">
+      <header className="brainplay-shell bp-nav">
+        <div>
+          <p className="bp-kicker">Parent Brief</p>
+          <h1 className="mt-1 text-lg font-black text-foreground">家长简报</h1>
+        </div>
+        <Link href="/" className="bp-button-secondary px-4 py-2 text-sm">
           返回首页
         </Link>
       </header>
 
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
+      <main className="brainplay-shell space-y-6 pb-8 pt-3">
         {!hydratedProfile && (
-          <div className="rounded-2xl border border-border bg-white p-6 text-center">
+          <div className="bp-panel rounded-[34px] p-6 text-center">
             <p className="text-sm text-ink-soft">
               请先
               <Link href="/session" className="text-accent underline">
@@ -212,11 +215,11 @@ export default function ParentPage() {
             <motion.section
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              className="rounded-[28px] border border-border bg-white p-6 shadow-sm"
+              className="bp-panel rounded-[44px] p-6 sm:p-8"
             >
-              <p className="text-xs font-semibold uppercase tracking-widest text-accent">今天的陪聊对象</p>
-              <h2 className="mt-2 text-2xl font-bold text-foreground">{hydratedProfile.nickname}</h2>
-              <p className="mt-2 text-sm leading-6 text-ink-soft">
+              <p className="bp-chip px-3 py-1.5">今天的陪聊对象</p>
+              <h2 className="bp-section-title mt-4">{hydratedProfile.nickname}</h2>
+              <p className="bp-copy mt-3 max-w-2xl">
                 这里优先告诉你：今天聊了什么、孩子是怎么想的、明天可以怎么顺手接一句。
               </p>
             </motion.section>
@@ -229,12 +232,12 @@ export default function ParentPage() {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="rounded-2xl border border-border bg-white p-6 text-center"
+                className="bp-panel rounded-[34px] p-6 text-center"
               >
                 <p className="text-sm text-ink-soft">今天还没有新的互动记录，先去和脑脑聊一小会儿吧。</p>
                 <Link
                   href="/session"
-                  className="mt-3 inline-block rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white"
+                  className="bp-button-primary mt-3 px-5 py-2 text-sm"
                 >
                   开始今天的 5 分钟
                 </Link>
@@ -246,37 +249,37 @@ export default function ParentPage() {
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.04 }}
-                className="rounded-[32px] border border-border bg-white p-6 shadow-sm"
+                className="bp-panel rounded-[40px] p-6 sm:p-7"
               >
-                <p className="text-xs font-semibold uppercase tracking-widest text-accent">今日简报</p>
-                <h3 className="mt-2 text-xl font-bold text-foreground">{dailyBrief.summary}</h3>
+                <p className="bp-kicker">今日简报</p>
+                <h3 className="mt-3 max-w-3xl text-2xl font-black leading-tight tracking-tight text-foreground">{dailyBrief.summary}</h3>
                 <p className="mt-2 text-xs text-ink-soft">
                   更新时间：{new Date(dailyBrief.generatedAt).toLocaleString("zh-CN")}
                 </p>
 
                 <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                  <div className="rounded-[24px] border border-emerald-200 bg-emerald-50 p-4">
+                  <div className="bp-stat p-4">
                     <p className="text-xs font-semibold uppercase tracking-widest text-emerald-700">今天聊了什么</p>
                     <p className="mt-3 text-base font-semibold text-foreground">{dailyBrief.questionTitle}</p>
                   </div>
-                  <div className="rounded-[24px] border border-sky-200 bg-sky-50 p-4">
+                  <div className="bp-stat p-4">
                     <p className="text-xs font-semibold uppercase tracking-widest text-sky-700">她是怎么想的</p>
                     <p className="mt-3 text-sm leading-6 text-foreground">{dailyBrief.childThinking}</p>
                   </div>
-                  <div className="rounded-[24px] border border-amber-200 bg-amber-50 p-4">
+                  <div className="bp-stat p-4">
                     <p className="text-xs font-semibold uppercase tracking-widest text-amber-700">这次对她来说</p>
                     <p className="mt-3 text-base font-semibold text-foreground">{dailyBrief.adaptationSummary ?? "脑脑还在继续观察"}</p>
                     <p className="mt-2 text-sm leading-6 text-ink-soft">{dailyBrief.adaptationDetail ?? "等再多几次小聊天，系统会更稳定地判断她现在偏轻松还是偏吃力。"}</p>
                   </div>
-                  <div className="rounded-[24px] border border-violet-200 bg-violet-50 p-4">
+                  <div className="bp-stat p-4">
                     <p className="text-xs font-semibold uppercase tracking-widest text-violet-700">明天怎么接着问</p>
                     <p className="mt-3 text-sm leading-6 text-foreground">{dailyBrief.nextPrompt}</p>
                   </div>
                 </div>
 
                 {dailyBrief.recentTopics.length > 1 && (
-                  <div className="mt-5 rounded-[24px] border border-border/70 bg-surface/50 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-widest text-accent">最近聊过</p>
+                  <div className="bp-paper mt-5 rounded-[28px] p-4">
+                    <p className="bp-kicker">最近聊过</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {dailyBrief.recentTopics.map((topic) => (
                         <span key={topic} className="rounded-full bg-white px-3 py-1 text-xs font-medium text-foreground shadow-sm">
@@ -302,7 +305,7 @@ export default function ParentPage() {
                     {report?.items.map((item) => (
                       <div
                         key={`${item.goalId}-${item.subGoalId}`}
-                        className="rounded-2xl border border-border/60 bg-surface/50 p-4"
+                         className="bp-muted-card p-4"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>
@@ -341,7 +344,7 @@ export default function ParentPage() {
                       <p className="text-sm font-semibold text-foreground">结构化小片段</p>
                       <div className="mt-3 space-y-3">
                         {activitySessions.slice(0, 6).map((session) => (
-                          <div key={session.id} className="rounded-xl border border-border/60 bg-surface/50 p-3">
+                          <div key={session.id} className="bp-muted-card p-3">
                             <div className="flex items-center justify-between gap-3">
                               <p className="text-sm font-semibold text-foreground">{session.activityId}</p>
                               <p className="text-xs text-ink-soft">{session.status}</p>
@@ -359,7 +362,7 @@ export default function ParentPage() {
                       <p className="text-sm font-semibold text-foreground">实验互动</p>
                       <div className="mt-3 space-y-3">
                         {(report?.experimentalItems ?? []).map((item, index) => (
-                          <div key={`${item.goalId}-${item.activityId}-${index}`} className="rounded-xl border border-border/60 bg-surface/50 p-3">
+                          <div key={`${item.goalId}-${item.activityId}-${index}`} className="bp-muted-card p-3">
                             <div className="flex items-center justify-between gap-3">
                               <p className="text-sm font-semibold text-foreground">{item.goalId} / {item.activityId}</p>
                               <p className="text-xs text-ink-soft">{new Date(item.updatedAt).toLocaleString("zh-CN")}</p>
@@ -371,7 +374,7 @@ export default function ParentPage() {
                         {report?.experimentalItems?.length
                           ? null
                           : experimentalSessions.slice(0, 4).map((session) => (
-                              <div key={session.id} className="rounded-xl border border-border/60 bg-surface/50 p-3">
+                              <div key={session.id} className="bp-muted-card p-3">
                                 <div className="flex items-center justify-between gap-3">
                                   <p className="text-sm font-semibold text-foreground">{session.goalId} / {session.activityId}</p>
                                   <p className="text-xs text-ink-soft">{session.status}</p>
@@ -394,7 +397,7 @@ export default function ParentPage() {
                       <p className="text-sm font-semibold text-foreground">最近常出现的想法方向 Top {skills.length}</p>
                       <div className="mt-4 space-y-3">
                         {skills.map((skill) => (
-                          <div key={skill.skill} className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-surface/50 p-3">
+                          <div key={skill.skill} className="bp-muted-card flex items-center justify-between gap-3 p-3">
                             <span className="text-sm font-medium text-foreground">{skill.skill}</span>
                             <div className="flex items-center gap-3">
                               <span className="text-xs text-ink-soft">出现 {skill.count} 次</span>
@@ -413,7 +416,7 @@ export default function ParentPage() {
                       <p className="text-sm font-semibold text-foreground">最近观察</p>
                       <div className="mt-4 space-y-4">
                         {recent.slice(0, 6).map((item) => (
-                          <div key={item.id} className="rounded-xl border border-border/60 bg-surface/50 p-3">
+                          <div key={item.id} className="bp-muted-card p-3">
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-semibold text-accent">{item.skill}</span>
                               <span className={`text-xs font-bold ${confidenceColor(item.confidence)}`}>
@@ -434,7 +437,7 @@ export default function ParentPage() {
         )}
       </main>
 
-      <section className="mx-auto max-w-3xl px-4 pb-12">
+      <section className="brainplay-shell pb-12">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}

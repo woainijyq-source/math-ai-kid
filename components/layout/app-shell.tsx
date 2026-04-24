@@ -26,11 +26,11 @@ export function AppShell({
   const hasAside = Boolean(aside);
 
   return (
-    <div className="min-h-screen px-3 py-3 md:px-6 md:py-6">
+    <div className="brainplay-page min-h-screen px-3 py-3 md:px-6 md:py-6">
       <div className="page-shell space-y-4 md:space-y-5">
         {showHeader ? (
           <header
-            className={`storybook-card sunrise-panel grain relative z-40 overflow-visible px-5 md:px-8 ${
+            className={`bp-panel grain relative z-40 overflow-visible rounded-[40px] px-5 md:px-8 ${
               compactHeader ? "py-4 md:py-5" : "py-5 md:py-7"
             }`}
           >
@@ -45,7 +45,7 @@ export function AppShell({
               }`}
             >
               <div className="max-w-3xl space-y-2">
-                <div className="inline-flex rounded-full border border-accent/15 bg-white/65 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.26em] text-accent">
+                <div className="bp-chip px-3 py-1">
                   BrainPlay Prototype
                 </div>
                 <h1
@@ -88,7 +88,7 @@ export function AppShell({
                 </div>
 
                 {!compactHeader ? (
-                  <div className="metric-pill inline-flex max-w-sm items-center gap-3 rounded-[22px] px-4 py-3 text-sm text-ink-soft">
+                  <div className="bp-stat inline-flex max-w-sm items-center gap-3 px-4 py-3 text-sm text-ink-soft">
                     <span className="float-up inline-flex h-10 w-10 items-center justify-center rounded-full bg-accent text-xs font-semibold text-white">
                       BP
                     </span>

@@ -6,7 +6,7 @@ import type { ChatRequestPayload, ChatResponsePayload } from "@/types";
 
 export interface ChatRunResult {
   response: ChatResponsePayload;
-  source: "qwen-direct" | "gateway" | "mock";
+  source: "deepseek-direct" | "qwen-direct" | "gateway" | "mock";
   debug?: Record<string, unknown>;
 }
 
@@ -20,7 +20,7 @@ export async function runChat(
   if (qwenResult.payload && isChatResponsePayload(qwenResult.payload)) {
     return {
       response: qwenResult.payload,
-      source: "qwen-direct",
+      source: qwenResult.provider === "deepseek" ? "deepseek-direct" : "qwen-direct",
       debug: qwenResult.debug,
     };
   }

@@ -22,13 +22,13 @@ export function ChoiceCard({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`storybook-card choice-card-hero group flex min-h-[216px] w-full flex-col overflow-hidden rounded-[30px] border-2 text-left transition ${
+      className={`bp-theme-card group flex min-h-[178px] w-full flex-col overflow-hidden p-0 text-left transition ${
         disabled
           ? "cursor-not-allowed opacity-60"
-          : "hover:-translate-y-1 hover:border-accent hover:shadow-[0_24px_50px_rgba(31,102,89,0.16)]"
+          : "hover:border-accent/50"
       }`}
     >
-      <div className="choice-card-art relative flex min-h-[92px] items-center justify-center overflow-hidden px-4 pb-3 pt-4">
+      <div className="choice-card-art relative flex min-h-[78px] items-center justify-center overflow-hidden px-4 pb-3 pt-4">
         {imageUrl ? (
           <Image
             src={imageUrl}
@@ -40,7 +40,7 @@ export function ChoiceCard({
         ) : (
           <>
             {badge ? (
-              <div className="inline-flex rounded-full bg-white/82 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-accent shadow-sm">
+              <div className="bp-chip px-3 py-1 text-[10px]">
                 {badge}
               </div>
             ) : null}
@@ -50,10 +50,10 @@ export function ChoiceCard({
         )}
       </div>
 
-      <div className="flex flex-1 flex-col px-4 pb-4 pt-3">
-        <div className="text-xl font-semibold tracking-tight text-foreground">{label}</div>
+      <div className="relative z-10 flex flex-1 flex-col px-4 pb-4 pt-3">
+        <div className="text-lg font-black tracking-tight text-foreground">{label}</div>
         <div className="mt-2 text-sm leading-6 text-ink-soft">{description}</div>
-        <div className="mt-auto pt-5 text-base font-semibold text-accent">就走这条路</div>
+        <div className="mt-auto pt-4 text-sm font-black text-accent">就走这条路</div>
       </div>
     </button>
   );

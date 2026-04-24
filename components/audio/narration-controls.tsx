@@ -226,7 +226,7 @@ export function NarrationControls({
             }
           }}
           className={`${buttonClass} ${
-            enabled ? "bg-accent text-white" : "border border-border bg-white"
+            enabled ? "bg-accent text-white shadow-sm" : "border border-white/70 bg-white/72"
           }`}
         >
           {enabled ? "关闭语音" : "开启语音"}
@@ -243,8 +243,8 @@ export function NarrationControls({
           }}
           className={`${buttonClass} ${
             canReplay
-              ? "border border-border bg-white"
-              : "cursor-not-allowed border border-border bg-white/60 text-ink-soft"
+              ? "border border-white/70 bg-white/72"
+              : "cursor-not-allowed border border-white/60 bg-white/50 text-ink-soft"
           }`}
         >
           重播
@@ -256,8 +256,8 @@ export function NarrationControls({
           onClick={stopPlayback}
           className={`${buttonClass} ${
             isPlaying
-              ? "border border-border bg-white"
-              : "cursor-not-allowed border border-border bg-white/60 text-ink-soft"
+              ? "border border-white/70 bg-white/72"
+              : "cursor-not-allowed border border-white/60 bg-white/50 text-ink-soft"
           }`}
         >
           停止

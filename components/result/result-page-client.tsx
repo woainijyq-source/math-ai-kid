@@ -20,12 +20,12 @@ export function ResultPageClient() {
     .at(-1);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-[#FFF7ED] to-[#F3E8FF] px-4">
+    <div className="brainplay-page flex min-h-screen flex-col items-center justify-center px-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-sm space-y-6 text-center"
+        className="bp-panel w-full max-w-sm space-y-6 rounded-[40px] p-7 text-center"
       >
         <Image
           src="/illustrations/character/brainy-encouraging.png"
@@ -58,13 +58,13 @@ export function ResultPageClient() {
         <div className="flex flex-col gap-3">
           <Link
             href="/session"
-            className="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white"
+            className="bp-button-primary px-6 py-3 text-sm"
           >
             再聊一个小问题
           </Link>
           <Link
             href="/rewards"
-            className="rounded-full border border-border bg-white px-6 py-3 text-sm text-foreground"
+            className="bp-button-secondary px-6 py-3 text-sm"
           >
             查看成长
           </Link>

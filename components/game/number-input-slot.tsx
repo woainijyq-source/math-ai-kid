@@ -39,24 +39,24 @@ export function NumberInputSlot({
 
   return (
     <div className="space-y-3">
-      <p className="text-sm font-medium text-foreground">{prompt}</p>
-      <div className="flex items-center gap-4">
+      <p className="text-sm font-bold leading-6 text-foreground">{prompt}</p>
+      <div className="flex flex-wrap items-center gap-3 rounded-[26px] border border-white/70 bg-white/60 p-3">
         <button
           type="button"
           onClick={() => setValue((v) => clamp(v - step))}
           disabled={value <= min || submitted}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-white text-xl font-bold text-accent disabled:opacity-40"
+          className="bp-icon-button h-12 w-12 text-xl font-black disabled:opacity-40"
         >
           −
         </button>
-        <span className="min-w-[3rem] text-center text-2xl font-bold text-foreground">
+        <span className="min-w-[4rem] rounded-2xl bg-white/80 px-4 py-2 text-center text-3xl font-black text-foreground shadow-sm">
           {value}
         </span>
         <button
           type="button"
           onClick={() => setValue((v) => clamp(v + step))}
           disabled={value >= max || submitted}
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-white text-xl font-bold text-accent disabled:opacity-40"
+          className="bp-icon-button h-12 w-12 text-xl font-black disabled:opacity-40"
         >
           +
         </button>
@@ -64,7 +64,7 @@ export function NumberInputSlot({
           type="button"
           onClick={handleSubmit}
           disabled={submitted}
-          className="ml-4 rounded-2xl bg-accent px-5 py-2 text-sm font-semibold text-white disabled:opacity-40"
+          className="bp-button-primary ml-auto px-5 py-3 text-sm disabled:pointer-events-none disabled:opacity-40"
         >
           确认
         </button>

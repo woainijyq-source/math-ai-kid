@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import type { AgentStartRequest } from "@/types/agent";
 import type { ChildProfile, GoalId } from "@/types/goals";
 import { buildMockAgentStart } from "@/lib/ai/mock";
+import { isDirectChatEnabled } from "@/lib/ai/qwen-chat";
 import { runAgentTurn, type AgentLoopContext } from "@/lib/agent/agent-loop";
 import { getMathStageGoalMapping } from "@/lib/daily/theme-goal-mapping";
 import { buildDailyQuestionMockStart } from "@/lib/daily/mock";
@@ -123,7 +124,7 @@ export async function POST(req: NextRequest) {
             timestamp: Date.now(),
           })));
 
-          if (!process.env.QWEN_API_KEY) {
+          if (!isDirectChatEnabled()) {
             for (const event of buildDailyQuestionMockStart(requestedDailyQuestion, continuitySnapshot)) {
               controller.enqueue(encoder.encode(encodeSSE(event)));
             }

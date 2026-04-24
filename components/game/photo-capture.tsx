@@ -35,7 +35,7 @@ export function PhotoCapture({ prompt, hints, onSubmit }: PhotoCaptureProps) {
 
   return (
     <div className="space-y-3">
-      <p className="text-sm font-medium text-foreground">{prompt}</p>
+      <p className="text-sm font-bold leading-6 text-foreground">{prompt}</p>
       {hints && hints.length > 0 && (
         <ul className="list-inside list-disc space-y-1">
           {hints.map((h, i) => (
@@ -46,7 +46,7 @@ export function PhotoCapture({ prompt, hints, onSubmit }: PhotoCaptureProps) {
 
       {/* 预览 */}
       {preview ? (
-        <div className="overflow-hidden rounded-2xl border border-border">
+        <div className="overflow-hidden rounded-[26px] border border-white/70 bg-white/70 shadow-sm">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={preview} alt="预览" className="max-h-48 w-full object-contain" />
         </div>
@@ -55,7 +55,7 @@ export function PhotoCapture({ prompt, hints, onSubmit }: PhotoCaptureProps) {
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={submitted}
-          className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border bg-surface/60 py-8 text-ink-soft transition hover:border-accent hover:text-accent disabled:opacity-50"
+          className="flex w-full flex-col items-center justify-center gap-2 rounded-[28px] border-2 border-dashed border-accent/22 bg-white/58 py-9 text-ink-soft transition hover:border-accent/50 hover:text-accent disabled:opacity-50"
         >
           <span className="text-3xl">📷</span>
           <span className="text-sm">点击拍照或选择图片</span>
@@ -82,7 +82,7 @@ export function PhotoCapture({ prompt, hints, onSubmit }: PhotoCaptureProps) {
             type="button"
             onClick={() => setPreview(null)}
             disabled={submitted}
-            className="flex-1 rounded-2xl border border-border py-2 text-sm text-ink-soft disabled:opacity-40"
+            className="bp-button-secondary flex-1 py-3 text-sm disabled:pointer-events-none disabled:opacity-40"
           >
             重拍
           </button>
@@ -90,7 +90,7 @@ export function PhotoCapture({ prompt, hints, onSubmit }: PhotoCaptureProps) {
             type="button"
             onClick={handleSubmit}
             disabled={submitted}
-            className="flex-1 rounded-2xl bg-accent py-2 text-sm font-semibold text-white disabled:opacity-40"
+            className="bp-button-primary flex-1 py-3 text-sm disabled:pointer-events-none disabled:opacity-40"
           >
             发送照片
           </button>

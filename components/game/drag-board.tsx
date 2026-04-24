@@ -32,8 +32,8 @@ export function DragBoard({
   }
 
   return (
-    <div className="storybook-card sunrise-panel rounded-[28px] p-4">
-      <p className="section-kicker">规则碎片板</p>
+    <div className="bp-paper rounded-[30px] p-4">
+      <p className="bp-kicker">规则碎片板</p>
       <p className="mt-3 text-sm leading-6 text-ink-soft">
         {prompt ?? "先点选 1 到 2 个规则碎片，帮助孩子把想法说得更完整。"}
       </p>
@@ -46,10 +46,10 @@ export function DragBoard({
               key={fragment}
               type="button"
               onClick={() => onSelect(fragment)}
-              className={`rounded-full px-3 py-2 text-sm font-medium transition ${
+              className={`rounded-full px-4 py-2 text-sm font-bold transition ${
                 active
                   ? "bg-accent text-white shadow-sm"
-                  : "border border-border bg-white hover:bg-accent-soft"
+                  : "border border-white/70 bg-white/76 text-foreground shadow-sm hover:border-accent/30"
               }`}
             >
               {fragment}
@@ -62,7 +62,7 @@ export function DragBoard({
           type="button"
           onClick={handleSubmit}
           disabled={selected.length === 0}
-          className="mt-4 w-full rounded-2xl bg-accent py-2 text-sm font-semibold text-white disabled:opacity-40"
+          className="bp-button-primary mt-4 w-full py-3 text-sm disabled:pointer-events-none disabled:opacity-40"
         >
           {submitLabel}
         </button>

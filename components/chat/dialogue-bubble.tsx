@@ -11,8 +11,8 @@ export function DialogueBubble({ message }: { message: AIMessage }) {
       <div
         className={`max-w-[85%] rounded-[24px] px-4 py-3 text-sm leading-6 shadow-sm ${
           isUser
-            ? "bg-accent text-white"
-            : "border border-border bg-white/88 text-foreground"
+            ? "bp-chat-bubble-user text-white"
+            : "bp-chat-bubble-ai text-foreground"
         }`}
       >
         <p

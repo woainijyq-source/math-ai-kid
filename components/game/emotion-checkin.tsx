@@ -28,24 +28,24 @@ export function EmotionCheckin({ onSubmit }: EmotionCheckinProps) {
 
   return (
     <div className="space-y-3">
-      <p className="text-sm font-medium text-foreground">现在感觉怎么样？</p>
-      <div className="flex gap-3">
+      <p className="text-sm font-bold text-foreground">现在感觉怎么样？</p>
+      <div className="grid gap-3 sm:grid-cols-3">
         {EMOTIONS.map((e) => (
           <button
             key={e.id}
             type="button"
             onClick={() => handleClick(e)}
             disabled={selected !== null}
-            className={`flex flex-1 flex-col items-center gap-1 rounded-2xl border-2 py-4 transition ${
+            className={`bp-theme-card flex flex-col items-center gap-2 px-4 py-5 transition ${
               selected === e.id
-                ? "border-accent bg-accent/10"
+                ? "border-accent bg-accent/10 ring-2 ring-accent/15"
                 : selected !== null
-                  ? "border-border opacity-40"
-                  : "border-border bg-white hover:border-accent"
+                  ? "opacity-40"
+                  : "hover:border-accent/50"
             } disabled:cursor-not-allowed`}
           >
             <span className="text-3xl">{e.emoji}</span>
-            <span className="text-xs text-ink-soft">{e.label}</span>
+            <span className="text-sm font-bold text-foreground">{e.label}</span>
           </button>
         ))}
       </div>

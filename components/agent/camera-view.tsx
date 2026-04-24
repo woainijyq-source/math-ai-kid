@@ -122,7 +122,7 @@ export function CameraView({ prompt, hints, duration = 30, onSubmit }: CameraVie
 
   if (state === "consent") {
     return (
-      <div className="space-y-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+      <div className="space-y-4 rounded-[28px] border border-amber-200 bg-amber-50/86 p-4 shadow-sm">
         <p className="text-sm font-semibold text-amber-800">📷 需要使用摄像头</p>
         <p className="text-xs text-amber-700">{prompt}</p>
         <p className="text-xs text-amber-600">家长确认：此功能会开启摄像头，画面仅用于本次互动，不会上传保存。</p>
@@ -134,7 +134,7 @@ export function CameraView({ prompt, hints, duration = 30, onSubmit }: CameraVie
         <button
           type="button"
           onClick={startCamera}
-          className="rounded-2xl bg-accent px-5 py-2 text-sm font-semibold text-white"
+          className="bp-button-primary px-5 py-3 text-sm"
         >
           家长已确认，开启摄像头
         </button>
@@ -144,7 +144,7 @@ export function CameraView({ prompt, hints, duration = 30, onSubmit }: CameraVie
 
   if (state === "error") {
     return (
-      <div className="space-y-3 rounded-2xl border border-red-200 bg-red-50 p-4">
+      <div className="space-y-3 rounded-[28px] border border-red-200 bg-red-50 p-4 shadow-sm">
         <p className="text-sm text-red-600">摄像头出错：{error}</p>
         <button
           type="button"
@@ -159,7 +159,7 @@ export function CameraView({ prompt, hints, duration = 30, onSubmit }: CameraVie
 
   if (state === "processing") {
     return (
-      <div className="flex items-center gap-3 rounded-2xl border border-border bg-surface/60 p-4">
+      <div className="bp-muted-card flex items-center gap-3 p-4">
         <span className="animate-spin text-xl">🔍</span>
         <span className="text-sm text-ink-soft">正在分析画面…</span>
       </div>
@@ -168,7 +168,7 @@ export function CameraView({ prompt, hints, duration = 30, onSubmit }: CameraVie
 
   if (state === "done") {
     return (
-      <div className="space-y-2 rounded-2xl border border-green-200 bg-green-50 p-4">
+      <div className="space-y-2 rounded-[28px] border border-green-200 bg-green-50 p-4 shadow-sm">
         <p className="text-xs font-semibold text-green-700">✅ 已分析</p>
         <p className="text-sm text-green-800">{description}</p>
       </div>
@@ -177,8 +177,8 @@ export function CameraView({ prompt, hints, duration = 30, onSubmit }: CameraVie
 
   return (
     <div className="space-y-3">
-      <p className="text-sm font-medium text-foreground">{prompt}</p>
-      <div className="relative overflow-hidden rounded-2xl border border-border bg-black">
+      <p className="text-sm font-bold leading-6 text-foreground">{prompt}</p>
+      <div className="relative overflow-hidden rounded-[28px] border border-white/70 bg-black shadow-sm">
         <video
           ref={videoRef}
           className="h-48 w-full object-cover"
@@ -195,7 +195,7 @@ export function CameraView({ prompt, hints, duration = 30, onSubmit }: CameraVie
         <button
           type="button"
           onClick={handleCapture}
-          className="w-full rounded-2xl bg-accent py-2 text-sm font-semibold text-white"
+          className="bp-button-primary w-full py-3 text-sm"
         >
           📸 拍摄并分析
         </button>

@@ -64,7 +64,7 @@ export function VoiceInputButton({
       className={`rounded-full px-4 py-3 text-sm font-semibold transition ${
         status === "recording"
           ? "bg-warm text-white shadow-lg"
-          : "border border-border bg-white text-foreground hover:bg-accent-soft"
+          : "border border-white/70 bg-white/72 text-foreground shadow-sm hover:bg-white"
       } ${(disabled || status === "loading") ? "cursor-not-allowed opacity-60" : ""}`}
     >
       {status === "recording" ? "停止录音" : status === "loading" ? "识别中..." : "语音输入"}

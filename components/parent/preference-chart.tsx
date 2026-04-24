@@ -10,7 +10,7 @@ const modeMeta: Array<{ mode: TaskMode; label: string; activeWidth: string }> = 
 
 export function PreferenceChart({ modes }: { modes: TaskMode[] }) {
   return (
-    <div className="storybook-card rounded-[28px] p-4 md:p-5">
+    <div className="bp-panel rounded-[34px] p-4 md:p-5">
       <p className="section-kicker">最近偏好类型</p>
       <div className="mt-4 space-y-4">
         {modeMeta.map((item) => {
@@ -22,7 +22,7 @@ export function PreferenceChart({ modes }: { modes: TaskMode[] }) {
                 <span className="font-medium text-foreground">{item.label}</span>
                 <span className="text-ink-soft">{active ? "当前更投入" : "等待更多记录"}</span>
               </div>
-              <div className="h-2.5 rounded-full bg-background/80">
+              <div className="h-2.5 rounded-full bg-white/70 shadow-inner">
                 <div
                   className={`h-2.5 rounded-full transition-all duration-500 ${
                     active ? "bg-accent" : "bg-border"

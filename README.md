@@ -48,9 +48,25 @@ AI_GATEWAY_TTS_PATH=/tts
 AI_GATEWAY_VISION_PATH=/vision
 ```
 
-### 方案 2：千问直连
+### 方案 2：DeepSeek 直连（推荐）
 
 ```bash
+AI_CHAT_PROVIDER=deepseek
+DEEPSEEK_API_KEY=
+DEEPSEEK_MODEL=deepseek-chat
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+```
+
+说明：
+
+- DeepSeek 用于 `/api/agent/*` 的 tool calling 主链路
+- 如果同时配置了 DeepSeek 和千问，默认优先使用 DeepSeek
+- 如果要强制使用千问，可设置 `AI_CHAT_PROVIDER=qwen`
+
+### 方案 3：千问直连（可选回退）
+
+```bash
+AI_CHAT_PROVIDER=qwen
 QWEN_API_KEY=
 QWEN_MODEL=qwen3.6-plus
 QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
@@ -58,10 +74,9 @@ QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 
 说明：
 
-- 千问直连目前只用于 `story` 主线的 `chat`
-- 前端接口不变，仍然走 `/api/ai/chat`
-- 服务端会把数学任务核、剧情壳、当前思维帧和可选思路一起发给千问
-- 如果千问返回不合规，会自动回退到本地 mock
+- 前端接口不变，仍然走 `/api/agent/*` 和 `/api/ai/chat`
+- 服务端会把当前活动、孩子 profile、近期观察和可用工具一起发给模型
+- 如果模型返回不合规，会自动回退到本地 mock/fallback
 
 ## 文档
 

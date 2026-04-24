@@ -130,19 +130,8 @@ function InteractiveRow({ tc, onUserInput }: {
       initial={{ opacity: 0, y: 24, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.35, ease: "easeOut" }}
-      className="relative rounded-[20px] border border-border/60 bg-white/95 px-4 py-4 shadow-lg backdrop-blur-sm"
-      style={{
-        boxShadow: "0 8px 32px rgba(31,102,89,0.13), 0 0 0 2px rgba(31,102,89,0.07)",
-      }}
+      className="bp-interaction-card px-4 py-4 sm:px-5 sm:py-5"
     >
-      {/* 聚焦光斑 */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 rounded-[20px]"
-        style={{
-          background: "radial-gradient(ellipse at 50% 0%, rgba(255,250,235,0.55) 0%, transparent 65%)",
-        }}
-      />
       <div className="relative z-10">{content}</div>
     </motion.div>
   );
@@ -198,7 +187,7 @@ export function UniversalRenderer({
   );
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* 1. 图片（AI 侧，左对齐） */}
       {images.map((tc) => <ImageRow key={tc.id} tc={tc} />)}
 

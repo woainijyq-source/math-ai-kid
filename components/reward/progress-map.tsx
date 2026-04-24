@@ -17,7 +17,7 @@ export function ProgressMap({
   nodes: ProgressMapNode[];
 }) {
   return (
-    <div className="storybook-card sunrise-panel rounded-[28px] p-5">
+    <div className="bp-panel rounded-[34px] p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="section-kicker">{title}</p>
@@ -44,7 +44,7 @@ export function ProgressMap({
               : "还没到这一步";
 
           return (
-            <div key={node.id} className={`rounded-[22px] border p-4 ${statusClass}`}>
+            <div key={node.id} className={`rounded-[24px] border p-4 shadow-sm ${statusClass}`}>
               <div className="flex items-start gap-3">
                 <span className={`inline-flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold ${badgeClass}`}>
                   {index + 1}

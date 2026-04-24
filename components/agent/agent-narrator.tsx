@@ -41,17 +41,15 @@ export function AgentNarrator({
       initial={{ opacity: 0, y: 12, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className="flex items-start gap-2"
+      className="flex items-start gap-3"
     >
       <Avatar
         src={avatarSrc ?? "/illustrations/character/robot-happy.png"}
         fallback="🤖"
-        size={32}
-        className="mt-1"
+        size={36}
+        className="bp-avatar-ring mt-1"
       />
-      <div className="relative max-w-[85%] rounded-[24px] rounded-tl-md border border-border bg-white/90 px-4 py-3 shadow-sm">
-        {/* 气泡左上角小三角 */}
-        <div className="absolute -left-2 top-3 h-3 w-3 rotate-45 border-b border-l border-border bg-white/90" />
+      <div className="bp-chat-bubble bp-chat-bubble-ai max-w-[min(85%,44rem)] px-4 py-3">
         {speakerName && (
           <p className={`mb-1 text-[11px] font-semibold uppercase tracking-widest ${roleColors[voiceRole] ?? "text-accent"}`}>
             {speakerName}

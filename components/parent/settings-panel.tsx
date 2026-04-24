@@ -64,7 +64,7 @@ export function SettingsPanel() {
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
       <div className="space-y-4">
         {/* 音色设置 */}
-        <div className="storybook-card sunrise-panel rounded-[28px] p-4 md:p-5">
+        <div className="bp-panel rounded-[34px] p-4 md:p-5">
           <div className="flex items-center justify-between">
             <p className="section-kicker">脑脑语音音色</p>
             {saving && <span className="text-xs text-ink-soft animate-pulse">保存中…</span>}
@@ -76,10 +76,10 @@ export function SettingsPanel() {
                 key={opt.value}
                 type="button"
                 onClick={() => handleVoiceChange(opt.value)}
-                className={`metric-pill flex items-center gap-3 rounded-[20px] px-4 py-3 text-left transition ${
+                  className={`flex items-center gap-3 rounded-[24px] px-4 py-3 text-left shadow-sm transition ${
                   voice === opt.value
                     ? "border-2 border-accent bg-accent/10"
-                    : "border border-border hover:border-accent/50"
+                    : "border border-white/70 bg-white/68 hover:border-accent/50"
                 }`}
               >
                 <span className="text-2xl">{voice === opt.value ? "🔊" : "🔈"}</span>
@@ -94,13 +94,13 @@ export function SettingsPanel() {
         </div>
 
         {/* 原型设置 */}
-        <div className="storybook-card sunrise-panel rounded-[28px] p-4 md:p-5">
+        <div className="bp-panel rounded-[34px] p-4 md:p-5">
           <p className="section-kicker">原型设置</p>
           <div className="mt-4 space-y-3">
             {TOGGLE_OPTIONS.map((option) => (
               <label
                 key={option.title}
-                className="metric-pill flex items-center justify-between gap-4 rounded-[24px] px-4 py-4"
+                className="bp-muted-card flex items-center justify-between gap-4 px-4 py-4"
               >
                 <div>
                   <p className="text-sm font-semibold text-foreground">{option.title}</p>
@@ -113,7 +113,7 @@ export function SettingsPanel() {
         </div>
       </div>
 
-      <div className="storybook-card rounded-[28px] p-4 md:p-5">
+      <div className="bp-panel rounded-[34px] p-4 md:p-5">
         <p className="section-kicker">当前说明</p>
         <div className="mt-4 space-y-3 text-sm leading-6 text-ink-soft">
           <p>阶段 1 只保留最小设置，不提前堆复杂的家长控制系统。</p>

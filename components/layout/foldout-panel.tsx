@@ -16,7 +16,7 @@ export function FoldoutPanel({
   return (
     <details
       open={defaultOpen}
-      className="group storybook-card rounded-[24px] bg-white/78 p-4"
+      className="bp-panel group rounded-[28px] p-4"
     >
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
         <div>
@@ -25,7 +25,7 @@ export function FoldoutPanel({
             <p className="mt-2 text-sm leading-6 text-ink-soft">{description}</p>
           ) : null}
         </div>
-        <span className="rounded-full border border-border bg-white px-3 py-1 text-xs font-semibold text-ink-soft transition group-open:rotate-45">
+        <span className="rounded-full border border-white/70 bg-white/72 px-3 py-1 text-xs font-semibold text-ink-soft transition group-open:rotate-45">
           +
         </span>
       </summary>

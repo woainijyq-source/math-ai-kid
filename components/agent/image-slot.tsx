@@ -89,7 +89,7 @@ export function ImageSlot({ alt, imageUrl, generatePrompt }: ImageSlotProps) {
 
   if (src) {
     return (
-      <div className="overflow-hidden rounded-2xl border border-border bg-white">
+      <div className="overflow-hidden rounded-[28px] border border-white/70 bg-white/78 shadow-sm">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={src}
@@ -106,7 +106,7 @@ export function ImageSlot({ alt, imageUrl, generatePrompt }: ImageSlotProps) {
   }
 
   return (
-    <div className="flex min-h-[120px] items-center justify-center rounded-2xl border border-dashed border-border bg-surface/60 px-4 py-6">
+    <div className="flex min-h-[140px] items-center justify-center rounded-[28px] border-2 border-dashed border-accent/20 bg-white/58 px-4 py-6">
       <div className="text-center">
         <p className="text-2xl">{generating ? "⏳" : failed ? "😵" : "🖼️"}</p>
         <p className="mt-1 text-xs text-ink-soft">

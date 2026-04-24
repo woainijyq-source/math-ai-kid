@@ -62,15 +62,14 @@ export function TextInputSlot({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-3">
         <Avatar
           src="/illustrations/character/robot-happy.png"
           fallback="脑"
-          size={32}
-          className="mt-1"
+          size={36}
+          className="bp-avatar-ring mt-1"
         />
-        <div className="relative max-w-[85%] rounded-[24px] rounded-tl-md border border-border bg-white/90 px-4 py-3 shadow-sm">
-          <div className="absolute -left-2 top-3 h-3 w-3 rotate-45 border-b border-l border-border bg-white/90" />
+        <div className="bp-chat-bubble bp-chat-bubble-ai max-w-[min(85%,44rem)] px-4 py-3">
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-accent">
             脑脑
           </p>
@@ -89,7 +88,7 @@ export function TextInputSlot({
         animate={{ opacity: inputReady ? 1 : 0.4 }}
         transition={{ duration: 0.25 }}
       >
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <input
             ref={inputRef}
             type="text"
@@ -103,7 +102,7 @@ export function TextInputSlot({
             }}
             placeholder={placeholder}
             disabled={textDisabled}
-            className="flex-1 rounded-2xl border border-border bg-white px-4 py-2 text-sm outline-none focus:border-accent disabled:opacity-50"
+            className="bp-field min-h-12 flex-1 px-4 py-3 text-sm disabled:opacity-50"
           />
           <button
             type="button"
@@ -116,10 +115,10 @@ export function TextInputSlot({
               void startRecording();
             }}
             disabled={micDisabled}
-            className={`flex h-10 w-10 items-center justify-center rounded-full text-lg transition ${
+            className={`bp-icon-button h-12 w-12 text-lg ${
               voiceState === "recording"
-                ? "animate-pulse bg-red-500 text-white"
-                : "bg-accent/10 text-accent hover:bg-accent/20"
+                ? "bp-icon-button-danger animate-pulse"
+                : ""
             } disabled:opacity-40`}
           >
             {voiceState === "processing" ? "…" : voiceState === "recording" ? "■" : "🎤"}
@@ -128,7 +127,7 @@ export function TextInputSlot({
             type="button"
             onClick={handleSubmit}
             disabled={textDisabled || !value.trim()}
-            className="rounded-2xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+            className="bp-button-primary min-h-12 px-5 py-3 text-sm disabled:pointer-events-none disabled:opacity-40"
           >
             {submitLabel}
           </button>

@@ -101,7 +101,7 @@ export function DrawingCanvas({ prompt, onSubmit }: DrawingCanvasProps) {
 
   return (
     <div className="space-y-3">
-      <p className="text-sm font-medium text-foreground">{prompt}</p>
+      <p className="text-sm font-bold leading-6 text-foreground">{prompt}</p>
 
       {/* 颜色选择 */}
       <div className="flex items-center gap-2">
@@ -124,7 +124,7 @@ export function DrawingCanvas({ prompt, onSubmit }: DrawingCanvasProps) {
               type="button"
               onClick={() => setLineWidth(w)}
               className={`flex h-7 w-7 items-center justify-center rounded-full border transition ${
-                lineWidth === w ? "border-accent bg-accent/10" : "border-border"
+                lineWidth === w ? "border-accent bg-accent/10" : "border-border bg-white/70"
               }`}
             >
               <div
@@ -141,7 +141,7 @@ export function DrawingCanvas({ prompt, onSubmit }: DrawingCanvasProps) {
         ref={canvasRef}
         width={600}
         height={400}
-        className={`w-full touch-none rounded-2xl border border-border ${
+        className={`w-full touch-none rounded-[28px] border border-white/70 bg-white shadow-sm ${
           submitted ? "opacity-60" : "cursor-crosshair"
         }`}
         onMouseDown={startDraw}
@@ -159,7 +159,7 @@ export function DrawingCanvas({ prompt, onSubmit }: DrawingCanvasProps) {
           type="button"
           onClick={clearCanvas}
           disabled={submitted}
-          className="flex-1 rounded-2xl border border-border py-2 text-sm text-ink-soft disabled:opacity-40"
+          className="bp-button-secondary flex-1 py-3 text-sm disabled:pointer-events-none disabled:opacity-40"
         >
           清除
         </button>
@@ -167,7 +167,7 @@ export function DrawingCanvas({ prompt, onSubmit }: DrawingCanvasProps) {
           type="button"
           onClick={handleSubmit}
           disabled={submitted}
-          className="flex-1 rounded-2xl bg-accent py-2 text-sm font-semibold text-white disabled:opacity-40"
+          className="bp-button-primary flex-1 py-3 text-sm disabled:pointer-events-none disabled:opacity-40"
         >
           {submitted ? "已提交 ✓" : "完成"}
         </button>

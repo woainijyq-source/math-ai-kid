@@ -21,11 +21,11 @@ interface ChatBubbleProps {
 }
 
 const BUBBLE_ACCENT: Record<string, string> = {
-  guide: "border-emerald-200 bg-white/90",
-  opponent: "border-orange-200 bg-orange-50/80",
-  maker: "border-purple-200 bg-purple-50/80",
-  storyteller: "border-amber-200 bg-amber-50/80",
-  parent: "border-blue-200 bg-blue-50/80",
+  guide: "border-emerald-200/80",
+  opponent: "border-orange-200/80",
+  maker: "border-purple-200/80",
+  storyteller: "border-amber-200/80",
+  parent: "border-blue-200/80",
 };
 
 const ROLE_COLORS: Record<string, string> = {
@@ -65,16 +65,14 @@ export function ChatBubble({
   if (isAI) {
     const bubbleClass = BUBBLE_ACCENT[voiceRole] ?? BUBBLE_ACCENT.guide;
     return (
-      <motion.div {...motionProps} className="flex items-start gap-2">
+      <motion.div {...motionProps} className="flex items-start gap-3">
         <Avatar
           src={avatarSrc ?? "/illustrations/character/robot-happy.png"}
           fallback={avatarFallback}
-          size={32}
-          className="mt-1"
+          size={36}
+          className="bp-avatar-ring mt-1"
         />
-        <div className={`relative max-w-[80%] rounded-[24px] rounded-tl-md border px-4 py-3 shadow-sm ${bubbleClass}`}>
-          {/* 三角缺口 */}
-          <div className="absolute -left-2 top-3 h-3 w-3 rotate-45 border-b border-l border-inherit bg-inherit" />
+        <div className={`bp-chat-bubble bp-chat-bubble-ai max-w-[min(84%,44rem)] px-4 py-3 ${bubbleClass}`}>
           {speakerName && (
             <p className={`mb-1 text-[11px] font-semibold uppercase tracking-widest ${ROLE_COLORS[voiceRole] ?? "text-accent"}`}>
               {speakerName}
@@ -88,17 +86,15 @@ export function ChatBubble({
 
   // User variant
   return (
-    <motion.div {...motionProps} className="flex items-start justify-end gap-2">
-      <div className="relative max-w-[75%] rounded-[24px] rounded-tr-md bg-accent px-4 py-3 shadow-sm">
-        {/* 右侧三角缺口 */}
-        <div className="absolute -right-2 top-3 h-3 w-3 rotate-45 border-r border-t border-accent bg-accent" />
-        <div className="text-sm text-white">{children}</div>
+    <motion.div {...motionProps} className="flex items-start justify-end gap-3">
+      <div className="bp-chat-bubble bp-chat-bubble-user max-w-[min(78%,38rem)] px-4 py-3">
+        <div className="text-sm leading-6 text-white">{children}</div>
       </div>
       <Avatar
         src={avatarSrc}
         fallback={avatarFallback}
-        size={32}
-        className="mt-1"
+        size={36}
+        className="bp-avatar-ring mt-1"
       />
     </motion.div>
   );

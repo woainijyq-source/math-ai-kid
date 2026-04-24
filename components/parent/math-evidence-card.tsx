@@ -10,7 +10,7 @@ export function MathEvidenceCard({
   aiFocus: string[];
 }) {
   return (
-    <div className="storybook-card sunrise-panel rounded-[28px] p-4 md:p-5">
+    <div className="bp-panel rounded-[34px] p-4 md:p-5">
       <p className="section-kicker">数学思维线索</p>
       <p className="mt-4 text-lg font-semibold text-foreground">
         {focus ?? "等待一轮真实试玩后显示"}
@@ -26,13 +26,13 @@ export function MathEvidenceCard({
               moves.map((move) => (
                 <span
                   key={move}
-                  className="rounded-full bg-white px-3 py-2 text-xs font-semibold text-accent-strong shadow-sm"
+                  className="rounded-full border border-white/70 bg-white/72 px-3 py-2 text-xs font-semibold text-accent-strong shadow-sm"
                 >
                   {move}
                 </span>
               ))
             ) : (
-              <span className="rounded-full bg-white px-3 py-2 text-xs font-semibold text-ink-soft shadow-sm">
+              <span className="rounded-full border border-white/70 bg-white/72 px-3 py-2 text-xs font-semibold text-ink-soft shadow-sm">
                 暂无记录
               </span>
             )}
@@ -48,13 +48,13 @@ export function MathEvidenceCard({
               aiFocus.map((item) => (
                 <div
                   key={item}
-                  className="rounded-[18px] bg-white/80 px-4 py-3 text-sm leading-6 text-ink-soft shadow-sm"
+                  className="bp-muted-card px-4 py-3 text-sm leading-6 text-ink-soft"
                 >
                   {item}
                 </div>
               ))
             ) : (
-              <div className="rounded-[18px] bg-white/80 px-4 py-3 text-sm leading-6 text-ink-soft shadow-sm">
+              <div className="bp-muted-card px-4 py-3 text-sm leading-6 text-ink-soft">
                 等待这一轮小聊天结束后，脑脑会整理一点观察。
               </div>
             )}

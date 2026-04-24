@@ -24,7 +24,7 @@ class ToolSlotErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       return this.props.fallback ?? (
-        <div className="rounded-2xl border border-border bg-white/80 px-4 py-3 text-sm text-ink-soft">
+        <div className="bp-muted-card px-4 py-3 text-sm text-ink-soft">
           哎呀，这里出了点小问题～
         </div>
       );
@@ -61,7 +61,7 @@ export function ToolSlot({
 
 export function FallbackSlot({ onContinue }: { onContinue?: () => void }) {
   return (
-    <div className="rounded-2xl border border-border bg-white/80 px-4 py-3 text-sm text-ink-soft">
+    <div className="bp-muted-card px-4 py-3 text-sm text-ink-soft">
       <button
         type="button"
         onClick={onContinue}

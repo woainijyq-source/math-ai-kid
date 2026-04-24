@@ -14,11 +14,11 @@ export function UtilityMenu() {
 
   return (
     <details className="group relative z-[90]">
-      <summary className="flex cursor-pointer list-none items-center gap-2 rounded-full border border-border bg-white/86 px-4 py-2 text-sm font-semibold text-foreground shadow-sm">
+      <summary className="bp-button-secondary flex cursor-pointer list-none items-center gap-2 px-4 py-2 text-sm">
         更多
         <span className="text-xs text-ink-soft transition group-open:rotate-180">▾</span>
       </summary>
-      <div className="absolute top-[calc(100%+10px)] right-0 z-[100] w-80 rounded-[24px] border border-border bg-white/98 p-3 shadow-2xl backdrop-blur">
+      <div className="bp-panel absolute right-0 top-[calc(100%+10px)] z-[100] w-80 rounded-[28px] p-3">
         <div className="space-y-2">
           {utilityItems.map((item) => {
             const active =
@@ -29,7 +29,7 @@ export function UtilityMenu() {
                 key={item.href}
                 href={item.href}
                 className={`block rounded-[18px] px-4 py-3 transition ${
-                  active ? "bg-accent-soft" : "hover:bg-surface-strong"
+                  active ? "bg-accent-soft" : "hover:bg-white/72"
                 }`}
               >
                 <p className="text-sm font-semibold text-foreground">{item.label}</p>

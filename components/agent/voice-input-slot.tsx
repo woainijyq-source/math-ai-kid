@@ -35,7 +35,7 @@ export function VoiceInputSlot({ prompt, onSubmit }: VoiceInputSlotProps) {
 
   return (
     <div className="space-y-3">
-      <p className="text-sm font-medium text-foreground">{prompt}</p>
+      <p className="text-sm font-bold leading-6 text-foreground">{prompt}</p>
       <div className="flex flex-col items-center gap-2">
         <button
           type="button"
@@ -50,9 +50,9 @@ export function VoiceInputSlot({ prompt, onSubmit }: VoiceInputSlotProps) {
             void startRecording();
           }}
           disabled={voiceState === "processing"}
-          className={`flex h-16 w-16 items-center justify-center rounded-full text-3xl shadow-lg transition ${
+          className={`bp-icon-button h-20 w-20 text-3xl shadow-lg ${
             voiceState === "recording"
-              ? "animate-pulse bg-red-500 text-white"
+              ? "bp-icon-button-danger animate-pulse"
               : "bg-accent text-white hover:bg-accent/90"
           } disabled:opacity-50`}
         >

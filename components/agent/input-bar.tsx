@@ -48,9 +48,9 @@ export function InputBar({ pendingInputType, onSubmit }: InputBarProps) {
   const isProcessing = voiceState === "processing";
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-white/95 px-4 py-3 backdrop-blur-sm">
-      <div className="mx-auto max-w-2xl">
-        <div className="flex gap-2">
+    <div className="fixed bottom-3 left-0 right-0 z-30 px-3 lg:pl-72">
+      <div className="bp-input-dock mx-auto max-w-3xl p-3">
+        <div className="flex items-center gap-2">
           <input
             type="text"
             value={value}
@@ -63,7 +63,7 @@ export function InputBar({ pendingInputType, onSubmit }: InputBarProps) {
             }}
             placeholder="说点什么…"
             disabled={isRecording}
-            className="flex-1 rounded-2xl border border-border bg-white px-4 py-2 text-sm outline-none focus:border-accent disabled:opacity-50"
+            className="bp-field min-h-12 flex-1 px-4 py-3 text-sm disabled:opacity-50"
           />
           <button
             type="button"
@@ -76,10 +76,10 @@ export function InputBar({ pendingInputType, onSubmit }: InputBarProps) {
               void startRecording();
             }}
             disabled={isProcessing}
-            className={`flex h-10 w-10 items-center justify-center rounded-full text-lg transition ${
+            className={`bp-icon-button h-12 w-12 text-lg ${
               isRecording
-                ? "animate-pulse bg-red-500 text-white"
-                : "bg-accent/10 text-accent hover:bg-accent/20"
+                ? "bp-icon-button-danger animate-pulse"
+                : ""
             } disabled:opacity-40`}
           >
             {isProcessing ? "…" : isRecording ? "■" : "🎤"}
@@ -88,7 +88,7 @@ export function InputBar({ pendingInputType, onSubmit }: InputBarProps) {
             type="button"
             onClick={handleSubmit}
             disabled={!value.trim() || isRecording}
-            className="rounded-2xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+            className="bp-button-primary min-h-12 px-5 py-3 text-sm disabled:pointer-events-none disabled:opacity-40"
           >
             发送
           </button>

@@ -3,6 +3,7 @@ import type { AgentTurnRequest, ConversationMessage, ToolCall } from "@/types/ag
 import type { ChildProfile, GoalId } from "@/types/goals";
 import { getActivity } from "@/content/activities/activity-templates";
 import { buildMockAgentTurn } from "@/lib/ai/mock";
+import { isDirectChatEnabled } from "@/lib/ai/qwen-chat";
 import { runAgentTurn, type AgentLoopContext } from "@/lib/agent/agent-loop";
 import { buildDailyQuestionMockTurn } from "@/lib/daily/mock";
 import { buildDailyQuestionActivity, selectDailyQuestion } from "@/lib/daily/select-daily-question";
@@ -108,7 +109,7 @@ export async function POST(req: NextRequest) {
         );
 
         if (requestedDailyQuestion) {
-          if (!process.env.QWEN_API_KEY) {
+          if (!isDirectChatEnabled()) {
             for (const event of buildDailyQuestionMockTurn(requestedDailyQuestion, turnRequest, turnIndex)) {
               controller.enqueue(encoder.encode(encodeSSE(event)));
             }

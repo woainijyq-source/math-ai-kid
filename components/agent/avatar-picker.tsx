@@ -89,17 +89,17 @@ export function AvatarPicker({ value, onChange }: AvatarPickerProps) {
 
   return (
     <div className="space-y-2">
-      <label className="text-xs text-ink-soft">选择头像</label>
+      <label className="text-xs font-bold text-ink-soft">选择头像</label>
       <div className="grid grid-cols-4 gap-2">
         {PRESET_AVATARS.map((preset) => (
           <button
             key={preset.id}
             type="button"
             onClick={() => handlePreset(preset)}
-            className={`flex flex-col items-center gap-1 rounded-xl p-2 transition ${
+            className={`flex flex-col items-center gap-1 rounded-2xl p-2 transition ${
               selectedId === preset.id
-                ? "bg-accent/10 ring-2 ring-accent"
-                : "hover:bg-accent/5"
+                ? "bg-accent/10 ring-2 ring-accent/50"
+                : "bg-white/48 hover:bg-white/80"
             }`}
           >
             <span className="text-2xl">{preset.emoji}</span>
@@ -111,7 +111,7 @@ export function AvatarPicker({ value, onChange }: AvatarPickerProps) {
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
-          className="rounded-xl border border-dashed border-border px-3 py-2 text-xs text-ink-soft hover:border-accent hover:text-accent"
+          className="rounded-2xl border border-dashed border-accent/24 bg-white/60 px-3 py-2 text-xs font-semibold text-ink-soft hover:border-accent/50 hover:text-accent"
         >
           上传自定义头像
         </button>
