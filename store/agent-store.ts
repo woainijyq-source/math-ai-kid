@@ -19,6 +19,48 @@ import type { DailyThemeId } from "@/types/daily";
 import type { ChildProfile } from "@/types/goals";
 import { parseSSE } from "@/lib/agent/stream-parser";
 
+type SessionSummary = { summary: string; completionRate?: number; parentNote?: string };
+
+const INPUT_TOOL_TYPE_MAP: Record<string, InputType> = {
+  show_text_input: "text",
+  request_voice: "voice",
+  show_number_input: "number",
+  request_photo: "photo",
+  show_emotion_checkin: "emotion",
+  request_camera: "camera",
+  show_drawing_canvas: "drawing",
+};
+
+function normalizeCompletionRate(value: unknown) {
+  const numeric = typeof value === "number"
+    ? value
+    : typeof value === "string"
+      ? Number(value)
+      : Number.NaN;
+
+  if (!Number.isFinite(numeric)) {
+    return undefined;
+  }
+
+  const normalized = numeric > 1 ? numeric / 100 : numeric;
+  return Math.max(0, Math.min(1, normalized));
+}
+
+function buildSessionSummary(data: Record<string, unknown> | undefined): SessionSummary {
+  return {
+    summary: typeof data?.summary === "string" && data.summary.trim()
+      ? data.summary.trim()
+      : "今天的小聊天先收到这里，脑脑记住了你的想法。",
+    completionRate: normalizeCompletionRate(data?.completionRate),
+    parentNote: typeof data?.parentNote === "string" ? data.parentNote : undefined,
+  };
+}
+
+function getPendingInputType(toolCalls: ToolCallResult[]) {
+  const inputTool = [...toolCalls].reverse().find((tc) => tc.name in INPUT_TOOL_TYPE_MAP);
+  return inputTool ? (INPUT_TOOL_TYPE_MAP[inputTool.name] ?? null) : null;
+}
+
 // ---------------------------------------------------------------------------
 // SSE 流读取工具
 // ---------------------------------------------------------------------------
@@ -72,7 +114,7 @@ interface AgentState {
   error: string | null;
   // 会话完成状态（end_activity 触发，不持久化）
   sessionComplete: boolean;
-  sessionSummary: { summary: string; completionRate?: number; parentNote?: string } | null;
+  sessionSummary: SessionSummary | null;
   // 最近活动 ID 列表（用于去重，持久化到 localStorage）
   recentActivityIds: string[];
 
@@ -145,6 +187,8 @@ export const useAgentStore = create<AgentState>()(
           }
 
           const startToolCalls: ToolCallResult[] = [];
+          let pendingSessionSummary: SessionSummary | null = null;
+          let sawTurnEnd = false;
 
           await readSSEStream(resp, (event) => {
             if (event.type === "session_start") {
@@ -167,46 +211,37 @@ export const useAgentStore = create<AgentState>()(
               startToolCalls.push(event.toolCall);
               set((s) => ({ activeToolCalls: [...s.activeToolCalls, event.toolCall] }));
             } else if (event.type === "turn_end") {
-              set({ isStreaming: false });
+              sawTurnEnd = true;
               // 把首轮 assistant 消息加入对话历史
               const assistantMsg: ConversationMessage = {
                 role: "assistant",
                 toolCalls: startToolCalls,
               };
-              set((s) => ({ conversation: [...s.conversation, assistantMsg] }));
-              // 计算 pendingInputType
-              const calls = get().activeToolCalls;
-              const inputTool = [...calls].reverse().find(
-                (tc) => ["show_text_input", "request_voice", "show_number_input",
-                  "request_photo", "show_emotion_checkin", "request_camera",
-                  "show_drawing_canvas"].includes(tc.name)
-              );
-              const inputTypeMap: Record<string, InputType> = {
-                show_text_input: "text",
-                request_voice: "voice",
-                show_number_input: "number",
-                request_photo: "photo",
-                show_emotion_checkin: "emotion",
-                request_camera: "camera",
-                show_drawing_canvas: "drawing",
-              };
-              set({ pendingInputType: inputTool ? (inputTypeMap[inputTool.name] ?? null) : null });
+              const pendingInputType = pendingSessionSummary ? null : getPendingInputType(startToolCalls);
+              set((s) => ({
+                isStreaming: false,
+                conversation: [...s.conversation, assistantMsg],
+                pendingInputType,
+                sessionComplete: pendingSessionSummary ? true : s.sessionComplete,
+                sessionSummary: pendingSessionSummary ?? s.sessionSummary,
+              }));
             } else if (event.type === "system_effect") {
-              // 处理首发轮可能出现的 end_activity
+              // 先暂存 end_activity，等 turn_end 把最终 assistant toolCalls 写入对话后再完成。
               if (event.effect?.type === "end_activity") {
-                set({
-                  sessionComplete: true,
-                  sessionSummary: {
-                    summary: (event.effect.data?.summary as string) ?? "",
-                    completionRate: event.effect.data?.completionRate as number | undefined,
-                  },
-                  isStreaming: false,
-                });
+                pendingSessionSummary = buildSessionSummary(event.effect.data);
               }
             } else if (event.type === "error") {
               set({ error: event.message, isStreaming: false });
             }
           });
+          if (pendingSessionSummary && !sawTurnEnd && !get().sessionComplete) {
+            set({
+              sessionComplete: true,
+              sessionSummary: pendingSessionSummary,
+              isStreaming: false,
+              pendingInputType: null,
+            });
+          }
         } catch (err) {
           set({ error: err instanceof Error ? err.message : "unknown", isStreaming: false });
         }
@@ -276,51 +311,45 @@ export const useAgentStore = create<AgentState>()(
           }
 
           const newToolCalls: ToolCallResult[] = [];
+          let pendingSessionSummary: SessionSummary | null = null;
+          let sawTurnEnd = false;
 
           await readSSEStream(resp, (event) => {
             if (event.type === "tool_call") {
               newToolCalls.push(event.toolCall);
               set((s) => ({ activeToolCalls: [...s.activeToolCalls, event.toolCall] }));
             } else if (event.type === "system_effect") {
-              // 处理 end_activity 事件，标记会话完成
+              // 先暂存 end_activity，等 turn_end 把最终 assistant toolCalls 写入对话后再完成。
               if (event.effect?.type === "end_activity") {
-                set({
-                  sessionComplete: true,
-                  sessionSummary: {
-                    summary: (event.effect.data?.summary as string) ?? "",
-                    completionRate: event.effect.data?.completionRate as number | undefined,
-                  },
-                  isStreaming: false,
-                });
+                pendingSessionSummary = buildSessionSummary(event.effect.data);
               }
             } else if (event.type === "turn_end") {
-              set({ isStreaming: false });
+              sawTurnEnd = true;
               // 把 assistant 消息加入对话历史
               const assistantMsg: ConversationMessage = {
                 role: "assistant",
                 toolCalls: newToolCalls,
               };
-              set((s) => ({ conversation: [...s.conversation, assistantMsg] }));
-              // 计算 pendingInputType
-              const inputTool = [...newToolCalls].reverse().find(
-                (tc) => ["show_text_input", "request_voice", "show_number_input",
-                  "request_photo", "show_emotion_checkin", "request_camera",
-                  "show_drawing_canvas"].includes(tc.name)
-              );
-              const inputTypeMap: Record<string, InputType> = {
-                show_text_input: "text",
-                request_voice: "voice",
-                show_number_input: "number",
-                request_photo: "photo",
-                show_emotion_checkin: "emotion",
-                request_camera: "camera",
-                show_drawing_canvas: "drawing",
-              };
-              set({ pendingInputType: inputTool ? (inputTypeMap[inputTool.name] ?? null) : null });
+              const pendingInputType = pendingSessionSummary ? null : getPendingInputType(newToolCalls);
+              set((s) => ({
+                isStreaming: false,
+                conversation: [...s.conversation, assistantMsg],
+                pendingInputType,
+                sessionComplete: pendingSessionSummary ? true : s.sessionComplete,
+                sessionSummary: pendingSessionSummary ?? s.sessionSummary,
+              }));
             } else if (event.type === "error") {
               set({ error: event.message, isStreaming: false });
             }
           });
+          if (pendingSessionSummary && !sawTurnEnd && !get().sessionComplete) {
+            set({
+              sessionComplete: true,
+              sessionSummary: pendingSessionSummary,
+              isStreaming: false,
+              pendingInputType: null,
+            });
+          }
         } catch (err) {
           set({ error: err instanceof Error ? err.message : "unknown", isStreaming: false });
         }
@@ -350,6 +379,7 @@ export const useAgentStore = create<AgentState>()(
         currentGoalFocus: state.currentGoalFocus,
         currentThemeId: state.currentThemeId,
         currentQuestionId: state.currentQuestionId,
+        currentProfile: state.currentProfile,
         recentActivityIds: state.recentActivityIds,
         // 不持久化 sessionComplete / sessionSummary，每次刷新需重置
       }),

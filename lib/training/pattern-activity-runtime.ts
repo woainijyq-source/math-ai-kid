@@ -885,9 +885,9 @@ export function buildPatternRecognitionStructuredToolCalls(input: {
         id: `pattern-input-${input.turnIndex}-${Date.now()}`,
         name: "show_text_input",
         arguments: {
-          prompt: "把你的答案告诉脑脑，再顺便说说你的想法。",
+          prompt: "先告诉脑脑，空格里你觉得更像什么；如果愿意，也说说你从哪儿看出来。",
           placeholder: buildIntroPlaceholder(input.spec),
-          submitLabel: "发送",
+          submitLabel: "告诉脑脑",
         },
       },
     ];
@@ -900,7 +900,7 @@ export function buildPatternRecognitionStructuredToolCalls(input: {
         id: `pattern-win-${input.turnIndex}-${Date.now()}`,
         name: "narrate",
         arguments: {
-          text: `答对了，而且你已经抓到规律了。这里应该是${input.spec.correctAnswer}。${input.spec.ruleModel.summary}。`,
+          text: `脑脑看到你抓住了“${input.spec.ruleModel.summary}”。这里也正好是${input.spec.correctAnswer}，我们先把这段小发现收好。`,
           speakerName: "脑脑",
           voiceRole: "guide",
           autoSpeak: true,
@@ -910,8 +910,8 @@ export function buildPatternRecognitionStructuredToolCalls(input: {
         id: `pattern-end-${input.turnIndex}-${Date.now()}`,
         name: "end_activity",
         arguments: {
-          summary: `Child completed a pattern-recognition challenge with the rule ${input.spec.ruleModel.summary}.`,
-          completionRate: 100,
+          summary: `今天她看到了“${input.spec.ruleModel.summary}”这条小规律，也愿意把自己怎么看出来的说清楚一点。`,
+          completionRate: 1,
           activity_session_id: input.activitySessionId,
           session_id: input.sessionId,
           turn_index: input.turnIndex,
@@ -927,7 +927,7 @@ export function buildPatternRecognitionStructuredToolCalls(input: {
         id: `pattern-correct-${input.turnIndex}-${Date.now()}`,
         name: "narrate",
         arguments: {
-          text: `答对了，这里应该是${input.spec.correctAnswer}。再把你看到的规律告诉脑脑，短短一句也可以。`,
+          text: `脑脑看到你选了${input.spec.correctAnswer}。再帮脑脑看一眼：你是从哪里发现这个规律的？`,
           speakerName: "脑脑",
           voiceRole: "guide",
           autoSpeak: true,
@@ -937,9 +937,9 @@ export function buildPatternRecognitionStructuredToolCalls(input: {
         id: `pattern-explain-${input.turnIndex}-${Date.now()}`,
         name: "show_text_input",
         arguments: {
-          prompt: "把你发现的规律告诉脑脑，不用很长，短短一句也可以。",
+          prompt: "把你发现的小规律告诉脑脑，不用很长，短短一句也可以。",
           placeholder: buildReasoningPlaceholder(input.spec),
-          submitLabel: "说出规律",
+          submitLabel: "告诉脑脑",
         },
       },
     ];
@@ -950,7 +950,7 @@ export function buildPatternRecognitionStructuredToolCalls(input: {
       id: `pattern-retry-${input.turnIndex}-${Date.now()}`,
       name: "narrate",
       arguments: {
-        text: `这次还差一点。我们回到刚才这排图形：${buildVisibleSequenceText(input.spec)}。你也可以想想，为什么不能是${input.spec.contrastTarget}？`,
+        text: `脑脑觉得这里还可以再看一眼。我们先回到这排图形：${buildVisibleSequenceText(input.spec)}。也想想为什么不像${input.spec.contrastTarget}。`,
         speakerName: "脑脑",
         voiceRole: "guide",
         autoSpeak: true,
@@ -965,9 +965,9 @@ export function buildPatternRecognitionStructuredToolCalls(input: {
       id: `pattern-retry-input-${input.turnIndex}-${Date.now()}`,
       name: "show_text_input",
       arguments: {
-        prompt: "再试一次：空格里应该是什么？如果愿意，也可以顺便说说你看到的规律。",
+        prompt: "再看一眼：空格里更像什么？如果愿意，也可以顺便说说你看到的小规律。",
         placeholder: buildIntroPlaceholder(input.spec),
-        submitLabel: "再试一次",
+        submitLabel: "再看一眼",
       },
     },
   ];
@@ -991,23 +991,23 @@ export function buildPatternRecognitionActivityRuntime(input: {
       activityText: [
         "当前子目标：pattern-recognition。",
         `难度：${input.difficultyLevel ?? "L1"}`,
-        "本轮还没有冻结好的 challenge spec。",
-        "只能先做开场，不要自己编造另一道题。",
+        "本轮还没有固定好的观察材料。",
+        "只能先做开场，不要自己编造另一组材料。",
       ].join("\n"),
     };
   }
 
   const assemblyRule =
     input.assemblyState === "evidence_repair"
-      ? `当前是证据修复轮，只能围绕这道题继续追问。repairStrategy=${input.repairStrategy ?? "none"}`
+      ? `当前是补说想法的一轮，只能围绕这组材料继续追问。repairStrategy=${input.repairStrategy ?? "none"}`
       : input.assemblyState === "hint_repair"
-        ? "当前是纠错轮，只能围绕这道题给提示，不得换题。"
-        : "当前题面已冻结，同一局内不得改题。";
+        ? "当前是轻支架轮，只能围绕这组材料给方向，不得换材料。"
+        : "当前观察材料已固定，同一次小片段内不得改材料。";
 
   return {
     activityText: [
-      "当前正式训练题已冻结为 session 唯一事实源。",
-      `题目类型：${spec.patternKind}`,
+      "当前结构化观察材料已固定为 session 唯一事实源。",
+      `材料类型：${spec.patternKind}`,
       `难度：${spec.difficultyLevel}`,
       `可见序列：${buildVisibleSequenceText(spec)}`,
       `正确答案：${spec.correctAnswer}`,
@@ -1019,7 +1019,7 @@ export function buildPatternRecognitionActivityRuntime(input: {
       assemblyRule,
       input.handoffTemplate && input.assemblyState === "evidence_repair"
         ? `承接语：${input.handoffTemplate}`
-        : "如果需要追问，也必须承接刚才这一题。",
+        : "如果需要追问，也必须承接刚才这组材料。",
       `Playbook 约束：${playbook.trainingIntent}`,
     ].join("\n"),
     challengeSpec: spec,

@@ -325,13 +325,17 @@ export function SessionPage({
     const mathEvidence = completedQuestion && completedThemeId
       ? assessAdaptiveConversation(completedQuestion, conversation)
       : undefined;
+    const completedTitle = completedQuestion?.title ?? "刚才那个小问题";
+    const completionSummary = sessionSummary.summary?.trim()
+      ? sessionSummary.summary.trim()
+      : `今天围绕“${completedTitle}”聊了一小段，脑脑记住了她愿意把想法说出来。`;
 
     logCompletedSession({
       profileId: activeProfile?.id,
       mode: "story",
       taskId: completedQuestionId ?? activeProfile?.goalPreferences[0] ?? "math-thinking",
-      title: (completedQuestion?.title ?? sessionSummary.summary).slice(0, 30),
-      completion: String(sessionSummary.completionRate ?? 1),
+      title: (completedQuestion?.title ?? completionSummary).slice(0, 30),
+      completion: completionSummary,
       highlights,
       rewardSignals: [],
       mathEvidence,
