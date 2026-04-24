@@ -24,7 +24,7 @@ export function TaskShell({
         {showHeader ? (
           <div className={`${focusMode ? "mb-4" : "mb-5"} flex items-start justify-between gap-4`}>
             <div className="max-w-3xl">
-              <p className="section-kicker">{focusMode ? "马上开始" : "任务进行中"}</p>
+              <p className="section-kicker">{focusMode ? "马上开始" : "正在聊的小片段"}</p>
               <h2
                 className={`font-semibold tracking-tight ${
                   focusMode ? "mt-2 text-xl md:text-2xl" : "mt-3 text-2xl md:text-[2rem]"

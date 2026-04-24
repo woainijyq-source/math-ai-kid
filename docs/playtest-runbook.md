@@ -6,8 +6,8 @@
 
 1. 启动项目：`npm run dev`
 2. 单独确认基础链路：`npm run smoke`
-3. 打开试玩记录模板：[playtest-notes.md](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/docs/playtest-notes.md)
-4. 打开试玩检查单：[playtest-checklist.md](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/docs/playtest-checklist.md)
+3. 打开试玩记录模板：[playtest-notes.md](../docs/playtest-notes.md)
+4. 打开试玩检查单：[playtest-checklist.md](../docs/playtest-checklist.md)
 
 ## 试玩顺序
 
@@ -58,7 +58,7 @@
 1. 回到首页，确认世界状态有变化
 2. 打开奖励页，确认结算能读懂
 3. 打开家长页，确认摘要和刚才的试玩一致
-4. 立刻填写 [playtest-notes.md](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/docs/playtest-notes.md)
+4. 立刻填写 [playtest-notes.md](../docs/playtest-notes.md)
 
 ## 记录优先级
 

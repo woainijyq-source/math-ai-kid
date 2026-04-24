@@ -76,17 +76,17 @@ export const FIRST_LAUNCH_TOOLS: ToolDefinition[] = [
     function: {
       name: "show_choices",
       description:
-        "向孩子展示选择卡片，等待孩子点击选择一项。【重要】如果选项需要图形（如规律题、形状题），请在 choices 每个元素中附带 imageUrl 字段（调用 /api/ai/generate-image 获得），而不只是文字标签。展示型工具，配合 narrate 一起调用。",
+        "向孩子展示 2-4 个思路方向卡片，等待孩子选择一个更容易开口的方向。【重要】如果选项需要图形（如规律图案、形状观察），请在 choices 每个元素中附带 imageUrl 字段（调用 /api/ai/generate-image 获得），而不只是文字标签。展示型工具，配合 narrate 一起调用。",
       parameters: {
         type: "object",
         properties: {
           prompt: {
             type: "string",
-            description: "选择题问题文本",
+            description: "面向孩子的思路方向提示，不要写成选择题或标准答案问题",
           },
           choices: {
             type: "array",
-            description: "选项列表，2-4 项。几何图形或规律类题目建议每个选项附带 imageUrl。",
+            description: "思路方向列表，2-4 项。几何图形或规律观察建议每个选项附带 imageUrl。",
             items: {
               type: "object",
               properties: {
@@ -109,13 +109,13 @@ export const FIRST_LAUNCH_TOOLS: ToolDefinition[] = [
     function: {
       name: "show_text_input",
       description:
-        "显示一个文字输入框，让孩子用键盘输入回答。输入请求工具，每轮最多使用 1 次。",
+        "显示一个文字输入框，让孩子补一句自己的想法。输入请求工具，每轮最多使用 1 次。",
       parameters: {
         type: "object",
         properties: {
           prompt: {
             type: "string",
-            description: "问题或指引文本",
+            description: "轻量接话或补一句提示，不要写成考试式问题",
           },
           placeholder: {
             type: "string",
@@ -163,13 +163,13 @@ export const FIRST_LAUNCH_TOOLS: ToolDefinition[] = [
     function: {
       name: "request_voice",
       description:
-        "请求孩子用语音回答，激活麦克风录音。输入请求工具，每轮最多使用 1 次。",
+        "请求孩子用语音说出自己的想法，激活麦克风录音。输入请求工具，每轮最多使用 1 次。",
       parameters: {
         type: "object",
         properties: {
           prompt: {
             type: "string",
-            description: "语音题提示文本",
+            description: "语音开口提示文本",
           },
           language: {
             type: "string",
@@ -210,17 +210,17 @@ export const FIRST_LAUNCH_TOOLS: ToolDefinition[] = [
     function: {
       name: "award_badge",
       description:
-        "给孩子颁发一枚成就徽章，触发奖励反馈。系统工具，在孩子完成阶段任务时调用。",
+        "记录孩子在本轮小聊天里留下的一点变化。系统工具，在孩子愿意开口、解释或多想半步时调用。",
       parameters: {
         type: "object",
         properties: {
           badgeId: {
             type: "string",
-            description: "徽章 ID，如 math-explorer-01",
+            description: "小变化 ID，如 math-explorer-01",
           },
           title: {
             type: "string",
-            description: "徽章名称",
+            description: "小变化名称",
           },
           detail: {
             type: "string",
@@ -237,17 +237,17 @@ export const FIRST_LAUNCH_TOOLS: ToolDefinition[] = [
     function: {
       name: "end_activity",
       description:
-        "结束当前活动，触发结算页面跳转。系统工具，活动完成后调用。",
+        "柔和收住当前小聊天。系统工具，在话题自然到尾声或孩子想停下时调用。",
       parameters: {
         type: "object",
         properties: {
           summary: {
             type: "string",
-            description: "本次活动的简短总结",
+            description: "本次小聊天的简短柔和总结",
           },
           completionRate: {
             type: "number",
-            description: "完成度 0-100",
+            description: "收尾进度，建议使用 0-1 的小数；不要面向孩子强调完成度",
           },
         },
         required: ["summary", "completionRate"],

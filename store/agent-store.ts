@@ -15,6 +15,7 @@ import type {
   InputMeta,
   ToolCallResult,
 } from "@/types/agent";
+import type { DailyThemeId } from "@/types/daily";
 import type { ChildProfile } from "@/types/goals";
 import { parseSSE } from "@/lib/agent/stream-parser";
 
@@ -65,6 +66,8 @@ interface AgentState {
   pendingInputType: InputType | null;
   isStreaming: boolean;
   currentGoalFocus: string[];
+  currentThemeId: DailyThemeId | null;
+  currentQuestionId: string | null;
   currentProfile: ChildProfile | null;
   error: string | null;
   // 会话完成状态（end_activity 触发，不持久化）
@@ -74,7 +77,12 @@ interface AgentState {
   recentActivityIds: string[];
 
   // Actions
-  startSession: (profileId: string, goalFocus?: string[], profile?: ChildProfile) => Promise<void>;
+  startSession: (
+    profileId: string,
+    goalFocus?: string[],
+    profile?: ChildProfile,
+    options?: { themeId?: DailyThemeId; questionId?: string },
+  ) => Promise<void>;
   sendTurn: (input: string, inputType: InputType, inputMeta?: InputMeta) => Promise<void>;
   reset: () => void;
 }
@@ -92,17 +100,37 @@ export const useAgentStore = create<AgentState>()(
       pendingInputType: null,
       isStreaming: false,
       currentGoalFocus: [],
+      currentThemeId: null,
+      currentQuestionId: null,
       currentProfile: null,
       error: null,
       sessionComplete: false,
       sessionSummary: null,
       recentActivityIds: [],
 
-      startSession: async (profileId, goalFocus = [], profile) => {
+      startSession: async (profileId, goalFocus = [], profile, options) => {
         const recentActivityIds = get().recentActivityIds;
-        set({ isStreaming: true, error: null, activeToolCalls: [], conversation: [], currentGoalFocus: goalFocus, currentProfile: profile ?? null, sessionComplete: false, sessionSummary: null });
+        set({
+          isStreaming: true,
+          error: null,
+          activeToolCalls: [],
+          conversation: [],
+          currentGoalFocus: goalFocus,
+          currentThemeId: options?.themeId ?? null,
+          currentQuestionId: options?.questionId ?? null,
+          currentProfile: profile ?? null,
+          sessionComplete: false,
+          sessionSummary: null,
+        });
 
-        const request: AgentStartRequest & { recentActivityIds: string[] } = { profileId, goalFocus, profile, recentActivityIds };
+        const request: AgentStartRequest & { recentActivityIds: string[] } = {
+          profileId,
+          goalFocus,
+          profile,
+          recentActivityIds,
+          themeId: options?.themeId,
+          questionId: options?.questionId,
+        };
 
         try {
           const resp = await fetch("/api/agent/start", {
@@ -126,7 +154,12 @@ export const useAgentStore = create<AgentState>()(
                   event.activityId,
                   ...current.filter((id) => id !== event.activityId),
                 ].slice(0, 5);
-                set(() => ({ sessionId: event.sessionId, recentActivityIds: newRecent }));
+                const currentThemeId = get().currentThemeId;
+                set(() => ({
+                  sessionId: event.sessionId,
+                  recentActivityIds: newRecent,
+                  currentQuestionId: currentThemeId ? event.activityId : get().currentQuestionId,
+                }));
               } else {
                 set({ sessionId: event.sessionId });
               }
@@ -184,6 +217,8 @@ export const useAgentStore = create<AgentState>()(
           sessionId,
           conversation,
           currentGoalFocus,
+          currentThemeId,
+          currentQuestionId,
           activeToolCalls,
           currentProfile,
           recentActivityIds,
@@ -209,6 +244,8 @@ export const useAgentStore = create<AgentState>()(
           turnIndex: number;
           lastTurnToolCalls: typeof activeToolCalls;
           goalFocus: string[];
+          themeId?: DailyThemeId;
+          questionId?: string;
           profile: ChildProfile | null;
           recentActivityIds: string[];
         } = {
@@ -220,6 +257,8 @@ export const useAgentStore = create<AgentState>()(
           turnIndex,
           lastTurnToolCalls: activeToolCalls,
           goalFocus: currentGoalFocus,
+          themeId: currentThemeId ?? undefined,
+          questionId: currentQuestionId ?? undefined,
           profile: currentProfile,
           recentActivityIds,
         };
@@ -293,6 +332,10 @@ export const useAgentStore = create<AgentState>()(
         activeToolCalls: [],
         pendingInputType: null,
         isStreaming: false,
+        currentGoalFocus: [],
+        currentThemeId: null,
+        currentQuestionId: null,
+        currentProfile: null,
         error: null,
         sessionComplete: false,
         sessionSummary: null,
@@ -305,6 +348,8 @@ export const useAgentStore = create<AgentState>()(
         sessionId: state.sessionId,
         conversation: state.conversation,
         currentGoalFocus: state.currentGoalFocus,
+        currentThemeId: state.currentThemeId,
+        currentQuestionId: state.currentQuestionId,
         recentActivityIds: state.recentActivityIds,
         // 不持久化 sessionComplete / sessionSummary，每次刷新需重置
       }),

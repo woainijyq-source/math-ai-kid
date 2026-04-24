@@ -12,7 +12,7 @@ function nextId(prefix: string): string {
 }
 
 /**
- * 通用兜底响应：1 个 narrate + 1 个 show_choices（2 个简单选项）。
+ * 通用兜底响应：1 个 narrate + 1 个 show_choices（2 个轻量方向）。
  * 适用于 AI 完全无响应或返回格式完全错误的情况。
  */
 export function buildFallbackToolCalls(): ToolCall[] {
@@ -21,7 +21,7 @@ export function buildFallbackToolCalls(): ToolCall[] {
       id: nextId("fallback-narrate"),
       name: "narrate",
       arguments: {
-        text: "哎呀我有点迷糊了……我们换个方式继续吧！",
+        text: "脑脑刚才有点没跟上。我们换个更小的方向接一下。",
         voiceRole: "guide",
         autoSpeak: true,
       },
@@ -30,10 +30,10 @@ export function buildFallbackToolCalls(): ToolCall[] {
       id: nextId("fallback-choices"),
       name: "show_choices",
       arguments: {
-        prompt: "你想怎么继续？",
+        prompt: "你想先从哪边接着说？",
         choices: [
-          { id: "continue", label: "继续挑战" },
-          { id: "hint", label: "给我一个提示" },
+          { id: "say-more", label: "再说一点" },
+          { id: "make-smaller", label: "换小一点" },
         ],
       },
     },
@@ -56,7 +56,7 @@ export function buildErrorRecoveryToolCalls(error: string): ToolCall[] {
         id: nextId("recovery-narrate"),
         name: "narrate",
         arguments: {
-          text: "网络好像有点慢，稍等一下，我们马上继续！",
+          text: "网络好像有点慢。脑脑先陪你把这一小步接住。",
           voiceRole: "guide",
           autoSpeak: true,
         },
@@ -65,10 +65,10 @@ export function buildErrorRecoveryToolCalls(error: string): ToolCall[] {
         id: nextId("recovery-choices"),
         name: "show_choices",
         arguments: {
-          prompt: "要重试吗？",
+          prompt: "我们怎么轻轻接回来？",
           choices: [
-            { id: "retry", label: "重新试一次" },
-            { id: "skip", label: "跳过这一步" },
+            { id: "retry", label: "再说一次" },
+            { id: "smaller", label: "换小一点" },
           ],
         },
       },

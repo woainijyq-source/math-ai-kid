@@ -1,3 +1,5 @@
+import type { DailyThemeId } from "./daily";
+
 export type TaskMode = "opponent" | "co-create" | "story";
 export type InputMode = "text" | "voice" | "choice" | "touch";
 export type AIIntent =
@@ -135,15 +137,31 @@ export interface TtsResponsePayload {
 
 export type SummaryResponsePayload = ParentSummary;
 
+export type MathDifficultySignal = "too_easy" | "fit" | "too_hard";
+
+export type MathSupportLevel = "light" | "medium" | "heavy";
+
 export interface MathEvidence {
+  themeId?: DailyThemeId;
   kernelId?: string;
   publicTitle: string;
   skillFocus: string[];
   observedMoves: string[];
   aiFocus: string[];
+  progressionStageId?: ProgressionStageId;
+  goalId?: string;
+  subGoalId?: string;
+  reasoningShown?: boolean;
+  transferAttempted?: boolean;
+  supportLevel?: MathSupportLevel;
+  difficultySignal?: MathDifficultySignal;
+  adaptationLevel?: number;
+  nextSuggestedLevel?: number;
+  nextSuggestedStageId?: ProgressionStageId;
 }
 
 export interface CompletedSessionPayload {
+  profileId?: string;
   mode: TaskMode;
   taskId: string;
   sceneId?: string;

@@ -3,7 +3,13 @@ import type { AgentStartRequest } from "@/types/agent";
 import type { ChildProfile, GoalId } from "@/types/goals";
 import { buildMockAgentStart } from "@/lib/ai/mock";
 import { runAgentTurn, type AgentLoopContext } from "@/lib/agent/agent-loop";
+import { getMathStageGoalMapping } from "@/lib/daily/theme-goal-mapping";
+import { buildDailyQuestionMockStart } from "@/lib/daily/mock";
+import { inferMathStageFromRecentLogs } from "@/lib/daily/math-adaptation";
+import { buildDailyQuestionActivity, selectDailyQuestion } from "@/lib/daily/select-daily-question";
+import { selectAdaptiveQuestion } from "@/lib/daily/theme-adaptation";
 import { encodeSSE } from "@/lib/agent/stream-parser";
+import { buildContinuitySnapshot, listRecentSessionLogs } from "@/lib/data/session-log";
 import { selectActivityForSubGoal } from "@/lib/agent/activity-selector";
 import { getRecentObservationSummaries } from "@/lib/data/db";
 import { ensureCurrentActivitySession } from "@/lib/training/activity-session-manager";
@@ -26,7 +32,14 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ error: "invalid_json" }), { status: 400 });
   }
 
-  const { profileId, goalFocus = [], profile: bodyProfile, recentActivityIds = [] } = body;
+  const {
+    profileId,
+    goalFocus = [],
+    profile: bodyProfile,
+    recentActivityIds = [],
+    themeId,
+    questionId,
+  } = body;
   if (!profileId) {
     return new Response(JSON.stringify({ error: "profileId_required" }), { status: 400 });
   }
@@ -60,18 +73,96 @@ export async function POST(req: NextRequest) {
           birthday: "2018-01-01",
           goalPreferences: goalFocus,
         };
-        const focusGoalId = resolveGoalFocus(goalFocus, profile);
         cleanupIdleActivitySessions({ profileId });
         evaluatePendingActivitySessions({ profileId });
+        const recentSessionLogs = listRecentSessionLogs(6, profileId);
+        const mathStage = themeId === "math"
+          ? inferMathStageFromRecentLogs(recentSessionLogs)
+          : undefined;
+        const mathStageGoalMapping = mathStage ? getMathStageGoalMapping(mathStage) : undefined;
+        const requestedDailyQuestion = themeId
+          ? selectAdaptiveQuestion({
+              themeId,
+              questionId,
+              recentLogs: recentSessionLogs,
+              rotationSeed: `${profileId}:${new Date().toISOString().slice(0, 10)}`,
+            })
+          : selectDailyQuestion({
+              themeId,
+              questionId,
+              rotationSeed: `${profileId}:${new Date().toISOString().slice(0, 10)}`,
+            });
+        const continuitySnapshot = buildContinuitySnapshot(
+          profileId,
+          requestedDailyQuestion?.themeId ?? themeId ?? undefined,
+        );
+        const focusGoalId = requestedDailyQuestion?.goalId ?? mathStageGoalMapping?.goalId ?? resolveGoalFocus(goalFocus, profile);
         const recentObservations = getRecentObservationSummaries(profileId, {
           limit: 40,
-          scoringMode: "formal_scored",
+          goalId: focusGoalId,
         });
         const hydratedProfile: ChildProfile = {
           ...profile,
           recentObservations,
         };
         const masteryProfile = buildMasteryProfile(profileId, recentObservations, focusGoalId, hydratedProfile.birthday);
+
+        if (requestedDailyQuestion) {
+          const trainingIntent = buildTrainingIntent({
+            masteryProfile,
+            subGoalId: requestedDailyQuestion.subGoalId ?? mathStageGoalMapping?.subGoalId,
+            activityId: requestedDailyQuestion.id,
+            birthday: hydratedProfile.birthday,
+          });
+
+          controller.enqueue(encoder.encode(encodeSSE({
+            type: "session_start" as const,
+            sessionId,
+            profileId,
+            activityId: requestedDailyQuestion.id,
+            timestamp: Date.now(),
+          })));
+
+          if (!process.env.QWEN_API_KEY) {
+            for (const event of buildDailyQuestionMockStart(requestedDailyQuestion, continuitySnapshot)) {
+              controller.enqueue(encoder.encode(encodeSSE(event)));
+            }
+            return;
+          }
+
+          const context: AgentLoopContext = {
+            profile: hydratedProfile,
+            goalFocus: [focusGoalId],
+            turnIndex: 0,
+            currentActivity: buildDailyQuestionActivity(requestedDailyQuestion, {
+              turnIndex: 0,
+              continuitySnapshot,
+            }),
+            currentActivityId: requestedDailyQuestion.id,
+            currentGoalId: requestedDailyQuestion.goalId,
+            currentSubGoalId: requestedDailyQuestion.subGoalId,
+            masteryProfile,
+            trainingIntent,
+            scoringMode: "experimental_unscored",
+          };
+
+          const firstInput = {
+            sessionId,
+            input: "系统启动：请用今天的问题开场，不要把这句当成孩子回答。",
+            inputType: "text" as const,
+            themeId: requestedDailyQuestion.themeId,
+            questionId: requestedDailyQuestion.id,
+          };
+          const initialConversation = [
+            { role: "user" as const, content: firstInput.input },
+          ];
+
+          for await (const event of runAgentTurn(initialConversation, firstInput, context)) {
+            controller.enqueue(encoder.encode(encodeSSE(event)));
+          }
+          return;
+        }
+
         const resolvedRecentActivityIds = recentActivityIds.length > 0
           ? recentActivityIds
           : recentObservations
@@ -139,6 +230,8 @@ export async function POST(req: NextRequest) {
           sessionId,
           input: "你好，开始吧",
           inputType: "text" as const,
+          themeId,
+          questionId,
         };
         const initialConversation = [
           { role: "user" as const, content: firstInput.input },

@@ -13,13 +13,13 @@
 
 以当前代码实现为准，核心依据包括：
 
-- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\types\index.ts](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/types/index.ts)
-- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\docs\ai-gateway-contract.md](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/docs/ai-gateway-contract.md)
-- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\app\api\ai\chat\route.ts](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/app/api/ai/chat/route.ts)
-- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\app\api\ai\stt\route.ts](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/app/api/ai/stt/route.ts)
-- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\app\api\ai\tts\route.ts](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/app/api/ai/tts/route.ts)
-- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\app\api\ai\summary\route.ts](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/app/api/ai/summary/route.ts)
-- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\app\api\progress\log\route.ts](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/app/api/progress/log/route.ts)
+- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\types\index.ts](../types/index.ts)
+- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\docs\ai-gateway-contract.md](../docs/ai-gateway-contract.md)
+- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\app\api\ai\chat\route.ts](../app/api/ai/chat/route.ts)
+- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\app\api\ai\stt\route.ts](../app/api/ai/stt/route.ts)
+- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\app\api\ai\tts\route.ts](../app/api/ai/tts/route.ts)
+- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\app\api\ai\summary\route.ts](../app/api/ai/summary/route.ts)
+- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\app\api\progress\log\route.ts](../app/api/progress/log/route.ts)
 
 ---
 
@@ -71,7 +71,7 @@
 
 ## 3. 基础类型
 
-以下类型由 [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\types\index.ts](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/types/index.ts) 定义，前端必须对齐。
+以下类型由 [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\types\index.ts](../types/index.ts) 定义，前端必须对齐。
 
 ### 3.1 枚举
 
@@ -169,7 +169,7 @@ interface RewardSignal {
 
 文件位置：
 
-- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\app\api\ai\chat\route.ts](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/app/api/ai/chat/route.ts)
+- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\app\api\ai\chat\route.ts](../app/api/ai/chat/route.ts)
 
 ## 5.2 请求体
 
@@ -341,7 +341,7 @@ interface ChatResponsePayload {
 
 文件位置：
 
-- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\app\api\ai\stt\route.ts](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/app/api/ai/stt/route.ts)
+- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\app\api\ai\stt\route.ts](../app/api/ai/stt/route.ts)
 
 ## 6.2 请求格式
 
@@ -380,7 +380,7 @@ interface SttResponsePayload {
 
 文件位置：
 
-- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\app\api\ai\tts\route.ts](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/app/api/ai/tts/route.ts)
+- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\app\api\ai\tts\route.ts](../app/api/ai/tts/route.ts)
 
 ## 7.2 请求体
 
@@ -438,7 +438,7 @@ interface TtsResponsePayload {
 
 文件位置：
 
-- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\app\api\ai\summary\route.ts](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/app/api/ai/summary/route.ts)
+- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\app\api\ai\summary\route.ts](../app/api/ai/summary/route.ts)
 
 ## 8.2 请求
 
@@ -483,7 +483,7 @@ interface ParentSummary {
 
 文件位置：
 
-- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\app\api\progress\log\route.ts](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/app/api/progress/log/route.ts)
+- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\app\api\progress\log\route.ts](../app/api/progress/log/route.ts)
 
 ## 9.2 请求体
 
@@ -598,7 +598,7 @@ interface MathEvidence {
 
 必须先同步更新：
 
-- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\types\index.ts](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/types/index.ts)
+- [C:\Users\Administrator\.openclaw\workspace\math-ai-kid\types\index.ts](../types/index.ts)
 - 对应 route handler
 - 本文档
 

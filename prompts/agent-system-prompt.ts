@@ -10,6 +10,7 @@ import {
   buildGoalContextPrompt,
   type SkillObservation,
 } from "./goal-context-builder";
+import { buildBrainyVoiceGuideText } from "@/content/daily/brainy-voice-guide";
 import type { MasteryProfile } from "@/lib/training/mastery-engine";
 import type { TrainingIntent } from "@/lib/training/training-intent";
 
@@ -89,9 +90,21 @@ export function buildSystemPrompt(
 
   const systemPrompt = [
     identityModule(),
+    buildBrainyVoiceGuideText(),
     toolsDescriptionModule(),
     orchestrationRulesModule(),
     safetyRulesModule(),
+    buildBrainyVoiceGuideText(),
+    `## MLIF Framework
+- This product follows the Micro-Leap Inquiry Framework (MLIF).
+- You are not a worksheet engine and not a lecture-style teacher.
+- You are an inquiry companion for a young child.
+- Connect first: respond to one short part of what the child just said before moving on.
+- Stay concrete first: prefer everyday scenes, visible changes, and child-sized choices.
+- Push only half a step: add one small twist, one compare, or one why-question at a time.
+- Questions come before explanations: do not rush to teach or reveal the solution.
+- Keep scaffolds light: if the child is stuck, offer two directions instead of a full answer.
+- Close softly: end with a warm summary and a light transfer thought, not a lecture or a test result.`,
     `## Runtime Guardrails
 - scoringMode: ${options.scoringMode}
 - assemblyState: ${options.assemblyState}
@@ -104,7 +117,11 @@ export function buildSystemPrompt(
 - silentStreak: ${options.silentStreak ?? 0}
 - injectedFewShotProfile: ${options.injectedFewShotProfile ?? "none"}
 - If the child says something completely unrelated to the current task, acknowledge it briefly and gently guide back.
-- Never treat unrelated chatter as formal mastery evidence.`,
+- Never treat unrelated chatter as formal mastery evidence.
+- In child-facing dialogue, prefer mirroring one short child phrase or idea before your next question; do not mechanically repeat the whole answer.
+- Avoid worksheet tone such as "题目是..." "请回答..." "正确答案是...".
+- Avoid lecture tone such as long explanations, explicit teaching summaries, or multi-step instruction dumps.
+- Prefer child-facing spoken language over formal educational wording.`,
   ].join("\n\n");
 
   const sessionContext = [
@@ -114,7 +131,7 @@ export function buildSystemPrompt(
   ].join("\n\n");
 
   const activityInstructionParts: string[] = [];
-  if (currentActivity && options.scoringMode === "formal_scored") {
+  if (currentActivity) {
     activityInstructionParts.push(`## Current Activity\n${currentActivity}`);
   }
   if (trainingIntent) {
@@ -135,7 +152,7 @@ export function buildSystemPrompt(
   const injectedBlocks = [
     "SystemPrompt",
     "SessionContext",
-    ...(currentActivity && options.scoringMode === "formal_scored" ? ["CurrentActivity"] : []),
+    ...(currentActivity ? ["CurrentActivity"] : []),
     ...(trainingIntent ? ["ActivityInstruction"] : []),
   ];
 

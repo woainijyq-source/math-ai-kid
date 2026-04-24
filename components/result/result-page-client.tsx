@@ -44,7 +44,7 @@ export function ResultPageClient() {
         {typeof endActivity?.completionRate === "number" && (
           <div className="mx-auto w-48">
             <div className="mb-1 flex justify-between text-xs text-ink-soft">
-              <span>完成度</span>
+              <span>今天先收到这里</span>
               <span>{endActivity.completionRate}%</span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-border">
@@ -60,7 +60,7 @@ export function ResultPageClient() {
             href="/session"
             className="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-white"
           >
-            继续互动
+            再聊一个小问题
           </Link>
           <Link
             href="/rewards"

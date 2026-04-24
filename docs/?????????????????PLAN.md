@@ -12,7 +12,7 @@
 ## Key Changes
 
 ### 1. 修复追问无语音、无输入框的链路
-涉及 [app/api/agent/turn/route.ts](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/app/api/agent/turn/route.ts)、[lib/agent/agent-loop.ts](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/lib/agent/agent-loop.ts)、[components/agent/universal-renderer.tsx](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/components/agent/universal-renderer.tsx)
+涉及 [app/api/agent/turn/route.ts](../app/api/agent/turn/route.ts)、[lib/agent/agent-loop.ts](../lib/agent/agent-loop.ts)、[components/agent/universal-renderer.tsx](../components/agent/universal-renderer.tsx)
 
 - 在服务端增加“追问组合补全”规则：
   - 若本轮包含 `show_text_input` 或 `request_voice`
@@ -25,7 +25,7 @@
 - 保证输入控件不会被 `pendingInputType` 和主渲染区互相打架：主渲染区有专用输入工具时，底部 `InputBar` 继续隐藏，输入由当前 tool slot 接管。
 
 ### 2. 把 narrate 升级成打字机式实时出现
-涉及 [components/agent/agent-narrator.tsx](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/components/agent/agent-narrator.tsx)、[components/agent/tool-slot.tsx](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/components/agent/tool-slot.tsx)
+涉及 [components/agent/agent-narrator.tsx](../components/agent/agent-narrator.tsx)、[components/agent/tool-slot.tsx](../components/agent/tool-slot.tsx)
 
 - `AgentNarrator` 从“一次性显示整段文字”改为“收到完整文本后逐字 reveal”。
 - 新增内部播放状态：
@@ -42,7 +42,7 @@
 - narrate 播放完成后，向父层发出“可交接输入”的状态，让输入控件在合适时机激活。
 
 ### 3. 加入动态对话气泡
-涉及 [components/agent/agent-narrator.tsx](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/components/agent/agent-narrator.tsx)、[components/agent/tool-slot.tsx](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/components/agent/tool-slot.tsx)、[app/globals.css](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/app/globals.css)
+涉及 [components/agent/agent-narrator.tsx](../components/agent/agent-narrator.tsx)、[components/agent/tool-slot.tsx](../components/agent/tool-slot.tsx)、[app/globals.css](../app/globals.css)
 
 - 当前 narrate 气泡出现时增加三段式动画：
   - 进入：淡入 + 上浮 + 轻缩放
@@ -57,7 +57,7 @@
 - 所有效果保持儿童向、柔和，不做赛博或过强闪烁。
 
 ### 4. 加入“聚焦 + 模糊”注意力引导
-涉及 [components/agent/session-page.tsx](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/components/agent/session-page.tsx)、[components/agent/universal-renderer.tsx](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/components/agent/universal-renderer.tsx)、[components/agent/tool-slot.tsx](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/components/agent/tool-slot.tsx)、[app/globals.css](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/app/globals.css)
+涉及 [components/agent/session-page.tsx](../components/agent/session-page.tsx)、[components/agent/universal-renderer.tsx](../components/agent/universal-renderer.tsx)、[components/agent/tool-slot.tsx](../components/agent/tool-slot.tsx)、[app/globals.css](../app/globals.css)
 
 - 在主内容区引入 `focusMode` 和 `focusToolCallId`：
   - `narrate`：聚焦当前说话气泡
@@ -86,7 +86,7 @@
   - 只作用于主内容区
 
 ### 5. 让输入阶段形成“脑脑说完 → 孩子接话”的节奏
-涉及 [components/game/text-input-slot.tsx](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/components/game/text-input-slot.tsx)、[components/agent/voice-input-slot.tsx](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/components/agent/voice-input-slot.tsx)、[components/agent/universal-renderer.tsx](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/components/agent/universal-renderer.tsx)
+涉及 [components/game/text-input-slot.tsx](../components/game/text-input-slot.tsx)、[components/agent/voice-input-slot.tsx](../components/agent/voice-input-slot.tsx)、[components/agent/universal-renderer.tsx](../components/agent/universal-renderer.tsx)
 
 - 当一轮包含 `narrate + show_text_input`：
   - 输入框立即挂载，避免布局跳变
@@ -98,7 +98,7 @@
 - 这样保证孩子先听脑脑说，再自然进入回答动作，不会看到多个静态块同时抢注意力。
 
 ### 6. 性能与可访问性约束
-涉及 [app/globals.css](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/app/globals.css)、[components/agent/agent-narrator.tsx](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/components/agent/agent-narrator.tsx)
+涉及 [app/globals.css](../app/globals.css)、[components/agent/agent-narrator.tsx](../components/agent/agent-narrator.tsx)
 
 - 动画采用 CSS + Framer Motion 混合方案：
   - 进入/退出/状态切换用 Framer Motion

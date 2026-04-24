@@ -10,7 +10,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { useAgentStore } from "@/store/agent-store";
 import { useProfileStore } from "@/store/profile-store";
+import { getDailyThemeDefinition } from "@/content/daily/theme-definitions";
 import { logCompletedSession } from "@/lib/data/client";
+import { buildBrainySceneReason, buildBrainySceneSetup, buildBrainySceneVoice } from "@/lib/daily/brainy-voice";
+import { getDailyQuestion } from "@/lib/daily/select-daily-question";
+import { assessAdaptiveConversation } from "@/lib/daily/theme-adaptation";
 import { UniversalRenderer } from "@/components/agent/universal-renderer";
 import { InputBar } from "@/components/agent/input-bar";
 import { RobotCharacter } from "@/components/agent/robot-character";
@@ -21,7 +25,7 @@ import { AvatarPicker } from "@/components/agent/avatar-picker";
 import { ImageSlot } from "@/components/agent/image-slot";
 import { useIsClient } from "@/hooks/use-is-client";
 import type { InputType, InputMeta, ToolCallResult } from "@/types/agent";
-import { GOAL_READINESS } from "@/lib/training/domain-pedagogy";
+import type { DailyThemeId } from "@/types/daily";
 
 const BG_MAP: Record<string, string> = {
   "math-thinking":         "/illustrations/backgrounds/math.png",
@@ -31,6 +35,16 @@ const BG_MAP: Record<string, string> = {
   "strategy-thinking":     "/illustrations/backgrounds/logic.png",
   "observation-induction": "/illustrations/backgrounds/general.png",
 };
+
+interface ContinuitySnapshot {
+  label: string;
+  questionTitle: string;
+  themeLabel?: string;
+  childThinking?: string;
+  memoryLine: string;
+  gentleOpen: string;
+  createdAt: string;
+}
 
 // ---------------------------------------------------------------------------
 // 创建档案表单（含头像选择）
@@ -73,8 +87,8 @@ function CreateProfileForm({ onCreated }: { onCreated: () => void }) {
           onSubmit={handleSubmit}
           className="space-y-4 rounded-3xl border border-border bg-white/90 p-8 shadow-xl backdrop-blur-sm"
         >
-          <h1 className="text-2xl font-bold text-foreground">你叫什么名字？</h1>
-          <p className="text-sm text-ink-soft">创建你的专属档案，脑脑会记住你的进度！</p>
+          <h1 className="text-2xl font-bold text-foreground">先告诉脑脑你叫什么</h1>
+          <p className="text-sm text-ink-soft">第一次见面前，先做一个小档案，脑脑就能记住你喜欢怎么聊。</p>
           <input
             type="text"
             value={nickname}
@@ -98,7 +112,7 @@ function CreateProfileForm({ onCreated }: { onCreated: () => void }) {
             disabled={!nickname.trim()}
             className="w-full rounded-2xl bg-accent py-3 text-sm font-semibold text-white transition hover:bg-accent/90 disabled:opacity-40"
           >
-            开始冒险
+            开始今天的小聊天
           </button>
         </form>
       </motion.div>
@@ -137,12 +151,22 @@ function ThinkingIndicator() {
 // Session Page
 // ---------------------------------------------------------------------------
 
-export function SessionPage({ initialGoal }: { initialGoal?: string }) {
+export function SessionPage({
+  initialGoal,
+  initialThemeId,
+  initialQuestionId,
+}: {
+  initialGoal?: string;
+  initialThemeId?: DailyThemeId;
+  initialQuestionId?: string;
+}) {
   const activeProfile = useProfileStore((s) => s.getActiveProfile());
-  const { sessionId, activeToolCalls, pendingInputType, isStreaming, error, conversation, sessionComplete, sessionSummary, startSession, sendTurn, reset } =
+  const { sessionId, currentThemeId, currentQuestionId, activeToolCalls, pendingInputType, isStreaming, error, conversation, sessionComplete, sessionSummary, startSession, sendTurn, reset } =
     useAgentStore();
   const [forceCreateForm, setForceCreateForm] = useState(false);
   const [isReviewingHistory, setIsReviewingHistory] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [continuitySnapshot, setContinuitySnapshot] = useState<ContinuitySnapshot | null>(null);
   const isClient = useIsClient();
   const { mood, isSpeaking } = useRobotMood();
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -155,14 +179,59 @@ export function SessionPage({ initialGoal }: { initialGoal?: string }) {
     const goalKey = goals[0] ?? "";
     const currentGoalFocus = useAgentStore.getState().currentGoalFocus;
     const sessionGoalKey = currentGoalFocus[0] ?? "";
-    if (sessionId && sessionGoalKey !== goalKey) {
+    if (
+      sessionId && (
+        (goalKey && sessionGoalKey !== goalKey) ||
+        (initialThemeId && currentThemeId !== initialThemeId) ||
+        (initialQuestionId && currentQuestionId !== initialQuestionId)
+      )
+    ) {
       reset();
       return;
     }
     if (!sessionId && !isStreaming) {
-      startSession(activeProfile.id, goals, activeProfile);
+      startSession(activeProfile.id, goals, activeProfile, {
+        themeId: initialThemeId,
+        questionId: initialQuestionId,
+      });
     }
-  }, [isClient, activeProfile, sessionId, isStreaming, startSession, reset, initialGoal]);
+  }, [
+    isClient,
+    activeProfile,
+    sessionId,
+    isStreaming,
+    startSession,
+    reset,
+    initialGoal,
+    initialThemeId,
+    initialQuestionId,
+    currentThemeId,
+    currentQuestionId,
+  ]);
+
+  useEffect(() => {
+    if (!activeProfile || !(currentThemeId ?? initialThemeId)) {
+      return;
+    }
+
+    let cancelled = false;
+    fetch(`/api/continuity/latest?profileId=${activeProfile.id}&theme=${currentThemeId ?? initialThemeId}`)
+      .then((response) => response.json())
+      .then((data: { snapshot?: ContinuitySnapshot | null }) => {
+        if (!cancelled) {
+          setContinuitySnapshot(data.snapshot ?? null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setContinuitySnapshot(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeProfile, currentThemeId, initialThemeId]);
 
   // 新内容出现时自动滚动（延迟 100ms 等动画开始）
   useEffect(() => {
@@ -207,6 +276,7 @@ export function SessionPage({ initialGoal }: { initialGoal?: string }) {
   }, [isClient]);
 
   function handleUserInput(input: string, type: InputType, meta?: InputMeta) {
+    setShowHistory(false);
     sendTurn(input, type, meta);
   }
 
@@ -215,31 +285,69 @@ export function SessionPage({ initialGoal }: { initialGoal?: string }) {
     if (!activeProfile) return;
     reset();
     const goals = initialGoal ? [initialGoal] : activeProfile.goalPreferences;
-    startSession(activeProfile.id, goals, activeProfile);
+    startSession(activeProfile.id, goals, activeProfile, {
+      themeId: initialThemeId ?? currentThemeId ?? undefined,
+      questionId: initialQuestionId ?? currentQuestionId ?? undefined,
+    });
   }
 
   // 会话结束时写入 session_logs 表（防重入）
   const loggedRef = useRef(false);
   useEffect(() => {
+    loggedRef.current = false;
+  }, [sessionId]);
+
+  useEffect(() => {
     if (!sessionComplete || !sessionSummary) return;
     if (loggedRef.current) return;
     loggedRef.current = true;
 
-    const highlights = conversation
+    const badgeHighlights = conversation
       .flatMap((msg) => msg.toolCalls ?? [])
       .filter((call) => call.name === "award_badge")
-      .map((call) => (call.arguments as { label?: string })?.label ?? "");
+      .map((call) => {
+        const args = call.arguments as { label?: string; title?: string; detail?: string };
+        return args.label ?? args.title ?? args.detail ?? "";
+      });
+    const childLines = conversation
+      .filter((message) => message.role === "user")
+      .map((message) => message.content?.trim() ?? "")
+      .filter(Boolean);
+    const latestChildLine = childLines.at(-1);
+    const highlights = [
+      ...(latestChildLine ? [`她说：“${latestChildLine.slice(0, 42)}${latestChildLine.length > 42 ? "..." : ""}”`] : []),
+      ...badgeHighlights,
+    ].filter(Boolean).slice(0, 4);
+
+    const completedThemeId = currentThemeId ?? initialThemeId;
+    const completedQuestionId = currentQuestionId ?? initialQuestionId;
+    const completedQuestion = getDailyQuestion(completedQuestionId);
+    const mathEvidence = completedQuestion && completedThemeId
+      ? assessAdaptiveConversation(completedQuestion, conversation)
+      : undefined;
 
     logCompletedSession({
+      profileId: activeProfile?.id,
       mode: "story",
-      taskId: activeProfile?.goalPreferences[0] ?? "math-thinking",
-      title: sessionSummary.summary.slice(0, 30),
+      taskId: completedQuestionId ?? activeProfile?.goalPreferences[0] ?? "math-thinking",
+      title: (completedQuestion?.title ?? sessionSummary.summary).slice(0, 30),
       completion: String(sessionSummary.completionRate ?? 1),
       highlights,
       rewardSignals: [],
-      mathEvidence: undefined,
+      mathEvidence,
     }).catch((err) => console.error("[session-page] logCompletedSession failed", err));
-  }, [activeProfile?.goalPreferences, conversation, sessionComplete, sessionSummary]);
+  }, [
+    activeProfile?.goalPreferences,
+    activeProfile?.id,
+    conversation,
+    currentThemeId,
+    currentQuestionId,
+    initialThemeId,
+    initialQuestionId,
+    sessionComplete,
+    sessionSummary,
+    sessionId,
+  ]);
 
   if (!isClient) return null;
 
@@ -249,9 +357,12 @@ export function SessionPage({ initialGoal }: { initialGoal?: string }) {
 
   const goalFocus = initialGoal ? [initialGoal] : (activeProfile?.goalPreferences ?? []);
   const bgImage = BG_MAP[goalFocus[0] ?? ""] ?? "/illustrations/backgrounds/general.png";
-  const readiness = GOAL_READINESS[(goalFocus[0] as keyof typeof GOAL_READINESS) ?? "math-thinking"] ?? "building";
   const userAvatarSrc = activeProfile?.avatarDataUrl;
   const userNickname = activeProfile?.nickname ?? "?";
+  const activeThemeId = currentThemeId ?? initialThemeId ?? undefined;
+  const activeQuestionId = currentQuestionId ?? initialQuestionId ?? undefined;
+  const activeTheme = getDailyThemeDefinition(activeThemeId);
+  const activeQuestion = getDailyQuestion(activeQuestionId);
 
   // 从 conversation 提取历史消息（排除最后一条 assistant，由 UniversalRenderer 渲染）
   const historyMessages: Array<{ role: string; content?: string; toolCalls?: ToolCallResult[] }> = [];
@@ -341,18 +452,42 @@ export function SessionPage({ initialGoal }: { initialGoal?: string }) {
       {/* 主内容区 */}
       <div className="lg:ml-64">
         <div className="mx-auto max-w-2xl space-y-4 px-4 pb-32 pt-6">
-          {goalFocus[0] && readiness !== "ready" && (
+          {activeQuestion && activeTheme && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+              className="rounded-[28px] border border-white/80 bg-white/88 px-5 py-5 shadow-sm backdrop-blur-sm"
             >
-              当前训练线处于{readiness === "pilot" ? "试运行" : "建设中"}状态。系统会继续记录证据和掌握度，但内容与评估还在完善。
+              <p className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${activeTheme.accentClass}`}>
+                今天想聊 · {activeTheme.label}
+              </p>
+              <h1 className="mt-3 text-xl font-bold text-foreground">{activeQuestion.title}</h1>
+              <p className="mt-2 text-sm leading-6 text-ink-soft">{buildBrainySceneSetup(activeQuestion)}</p>
+              <p className="mt-2 text-sm leading-6 text-ink-soft">{buildBrainySceneVoice(activeQuestion)}</p>
+              <p className="mt-2 text-sm leading-6 text-ink-soft">{buildBrainySceneReason(activeQuestion)}</p>
+              {continuitySnapshot && (
+                <p className="mt-3 rounded-2xl bg-accent/8 px-4 py-3 text-sm leading-6 text-foreground">
+                  脑脑还记得：{continuitySnapshot.gentleOpen}
+                </p>
+              )}
+              <p className="mt-2 text-sm leading-6 text-ink-soft">这一轮不急着答对，先把你想到的告诉脑脑，它会顺着你的话继续聊。</p>
             </motion.div>
           )}
 
-          {/* 历史对话气泡（AI + User 交替，带 stagger 动画） */}
           {historyMessages.length > 0 && (
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={() => setShowHistory((value) => !value)}
+                className="rounded-full border border-border/70 bg-white/80 px-4 py-2 text-xs font-semibold text-ink-soft transition hover:border-accent/40 hover:text-foreground"
+              >
+                {showHistory ? "收起刚才的小聊天" : "看看刚才聊到哪了"}
+              </button>
+            </div>
+          )}
+
+          {/* 历史对话气泡（默认折叠） */}
+          {showHistory && historyMessages.length > 0 && (
             <motion.div
               initial="hidden"
               animate="visible"
@@ -420,7 +555,10 @@ export function SessionPage({ initialGoal }: { initialGoal?: string }) {
                 <p className="text-sm text-red-600">出了点问题：{error}</p>
                 <button
                   type="button"
-                  onClick={() => activeProfile && startSession(activeProfile.id, activeProfile.goalPreferences)}
+                  onClick={() => activeProfile && startSession(activeProfile.id, activeProfile.goalPreferences, activeProfile, {
+                    themeId: initialThemeId ?? currentThemeId ?? undefined,
+                    questionId: initialQuestionId ?? currentQuestionId ?? undefined,
+                  })}
                   className="mt-2 text-xs text-accent underline"
                 >
                   重试
@@ -442,28 +580,44 @@ export function SessionPage({ initialGoal }: { initialGoal?: string }) {
           transition={{ duration: 0.5, ease: "easeOut" }}
           className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 backdrop-blur-sm p-6"
         >
-          <div className="w-full max-w-sm rounded-3xl border border-border bg-white/95 p-8 text-center shadow-2xl">
-            <div className="text-6xl mb-4">🎉</div>
-            <h2 className="text-2xl font-bold text-foreground mb-2">这一局结束啦！</h2>
+          <div className="w-full max-w-md rounded-3xl border border-border bg-white/95 p-8 text-center shadow-2xl">
+            <div className="text-6xl mb-4">🌤️</div>
+            <h2 className="text-2xl font-bold text-foreground mb-2">脑脑先把今天这段小聊天装进口袋里</h2>
             {sessionSummary?.summary && (
-              <p className="text-sm text-ink-soft mb-4">{sessionSummary.summary}</p>
+              <p className="text-sm text-ink-soft mb-5">{sessionSummary.summary}</p>
             )}
-            {typeof sessionSummary?.completionRate === "number" && (
-              <div className="mb-6 rounded-2xl bg-accent/10 px-4 py-2 text-sm font-semibold text-accent">
-                完成度：{Math.round(sessionSummary.completionRate * 100)}%
+            <div className="mb-6 grid gap-3 text-left sm:grid-cols-2">
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-widest text-emerald-700">今天聊到</p>
+                <p className="mt-2 text-sm font-semibold text-foreground">{activeQuestion?.title ?? "刚才那个小问题"}</p>
               </div>
+              <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-widest text-sky-700">脑脑记住了</p>
+                <p className="mt-2 text-sm text-foreground">{activeTheme ? `你今天愿意围着“${activeTheme.label}”多想半步。` : "你刚才愿意把自己的想法说出来。"}</p>
+              </div>
+            </div>
+            {typeof sessionSummary?.completionRate === "number" && (
+              <p className="mb-6 text-xs text-ink-soft">
+                这一轮已经差不多聊到尾声了（{Math.round(sessionSummary.completionRate * 100)}%）。
+              </p>
             )}
             <div className="flex flex-col gap-3">
+              <Link
+                href="/rewards"
+                className="w-full rounded-2xl bg-accent py-3 text-center text-sm font-semibold text-white transition hover:bg-accent/90"
+              >
+                看看今天留下什么小变化
+              </Link>
               <button
                 type="button"
                 onClick={handleRestart}
-                className="w-full rounded-2xl bg-accent py-3 text-sm font-semibold text-white transition hover:bg-accent/90"
+                className="w-full rounded-2xl border border-border bg-white py-3 text-sm font-semibold text-foreground transition hover:bg-accent/5"
               >
-                再来一局
+                再聊一个小问题
               </button>
               <Link
                 href="/"
-                className="w-full rounded-2xl border border-border py-3 text-center text-sm font-semibold text-foreground transition hover:bg-accent/5"
+                className="w-full rounded-2xl py-3 text-center text-sm font-semibold text-ink-soft transition hover:text-foreground"
               >
                 回到首页
               </Link>

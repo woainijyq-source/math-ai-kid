@@ -6,6 +6,7 @@ import {
   getSkillSummary,
   toActivitySessionSummary,
 } from "@/lib/data/db";
+import { buildParentDailyBrief } from "@/lib/data/session-log";
 import { cleanupIdleActivitySessions, evaluatePendingActivitySessions } from "@/lib/training/evaluator-agent";
 import { buildParentTrainingReport } from "@/lib/training/parent-report";
 
@@ -31,8 +32,10 @@ export async function GET(req: NextRequest) {
       recentSummaries,
       experimentalActivitySessions.map(toActivitySessionSummary),
     );
+    const dailyBrief = buildParentDailyBrief(profileId);
 
     return NextResponse.json({
+      dailyBrief,
       skills,
       recent: recentRows,
       report,
@@ -44,6 +47,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       skills: [],
       recent: [],
+      dailyBrief: null,
       report: { items: [], experimentalItems: [] },
       activitySessions: [],
       experimentalActivitySessions: [],

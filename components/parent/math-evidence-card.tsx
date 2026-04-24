@@ -11,7 +11,7 @@ export function MathEvidenceCard({
 }) {
   return (
     <div className="storybook-card sunrise-panel rounded-[28px] p-4 md:p-5">
-      <p className="section-kicker">数学思维证据</p>
+      <p className="section-kicker">数学思维线索</p>
       <p className="mt-4 text-lg font-semibold text-foreground">
         {focus ?? "等待一轮真实试玩后显示"}
       </p>
@@ -55,7 +55,7 @@ export function MathEvidenceCard({
               ))
             ) : (
               <div className="rounded-[18px] bg-white/80 px-4 py-3 text-sm leading-6 text-ink-soft shadow-sm">
-                等待这一轮试玩完成后生成观察点。
+                等待这一轮小聊天结束后，脑脑会整理一点观察。
               </div>
             )}
           </div>

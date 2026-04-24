@@ -10,7 +10,10 @@ import {
 } from "../lib/data/db";
 import { evaluateActivitySession } from "../lib/training/evaluator-agent";
 import { buildMasteryProfile } from "../lib/training/mastery-engine";
-import { buildPatternRecognitionActivityRuntime } from "../lib/training/pattern-activity-runtime";
+import {
+  buildPatternRecognitionActivityRuntime,
+  ensurePatternRecognitionChallengeSpec,
+} from "../lib/training/pattern-activity-runtime";
 import { buildPromptAssembly } from "../lib/training/prompt-builder";
 import type { AgentTurnRequest } from "../types/agent";
 import type { ChildProfile, ScoringMode } from "../types/goals";
@@ -46,6 +49,26 @@ function createFormalSession(
   });
 
   return { sessionId, activitySessionId };
+}
+
+async function createFrozenPatternSession(
+  suffix: string,
+  options?: {
+    birthday?: string;
+    difficultyLevel?: "L1" | "L2" | "L3" | "L4";
+  },
+) {
+  const { activitySessionId } = createFormalSession(suffix);
+  const resolution = await ensurePatternRecognitionChallengeSpec({
+    activitySessionId,
+    birthday: options?.birthday ?? profile.birthday,
+    difficultyLevel: options?.difficultyLevel,
+  });
+
+  return {
+    activitySessionId,
+    spec: resolution.spec,
+  };
 }
 
 function addTurnEvent(
@@ -321,8 +344,13 @@ async function main() {
     );
     assert.equal(experimentalPrompt.runtime.assemblyState, "experimental_chat");
 
+    const authoredSession = await createFrozenPatternSession("authored-card", {
+      birthday: "2018-01-01",
+      difficultyLevel: "L2",
+    });
     const authoredActivity = buildPatternRecognitionActivityRuntime({
-      activitySessionId: "stage2-authored-card",
+      activitySessionId: authoredSession.activitySessionId,
+      challengeSpec: authoredSession.spec,
       difficultyLevel: "L2",
       birthday: "2018-01-01",
       assemblyState: "initial_probe",
@@ -337,8 +365,12 @@ async function main() {
     const age10Profile = buildMasteryProfile("age10", [], "math-thinking", "2016-01-01");
     assert.equal(age10Profile.states["pattern-recognition"]?.recommendedDifficulty, "L3");
 
+    const age11Session = await createFrozenPatternSession("authored-card-11", {
+      birthday: "2014-01-01",
+    });
     const age11Card = buildPatternRecognitionActivityRuntime({
-      activitySessionId: "stage2-authored-card-11",
+      activitySessionId: age11Session.activitySessionId,
+      challengeSpec: age11Session.spec,
       birthday: "2014-01-01",
       assemblyState: "initial_probe",
     });

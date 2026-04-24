@@ -1,3 +1,5 @@
+import type { DailyThemeId } from "./daily";
+
 /**
  * T1.1 — Agent 协议类型定义
  * 纯类型文件，无实现代码。
@@ -89,6 +91,8 @@ export interface AgentTurnRequest {
   input: string;
   inputType: InputType;
   inputMeta?: InputMeta;
+  themeId?: DailyThemeId;
+  questionId?: string;
 }
 
 export interface AgentStartRequest {
@@ -96,6 +100,8 @@ export interface AgentStartRequest {
   goalFocus?: string[];
   profile?: import("./goals").ChildProfile;
   recentActivityIds?: string[];
+  themeId?: DailyThemeId;
+  questionId?: string;
 }
 
 // ---------------------------------------------------------------------------

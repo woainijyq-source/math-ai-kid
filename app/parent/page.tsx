@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { SettingsPanel } from "@/components/parent/settings-panel";
@@ -50,7 +50,19 @@ interface ParentTrainingReport {
   }>;
 }
 
+interface ParentDailyBrief {
+  questionTitle: string;
+  summary: string;
+  childThinking: string;
+  adaptationSummary?: string;
+  adaptationDetail?: string;
+  nextPrompt: string;
+  recentTopics: string[];
+  generatedAt: string;
+}
+
 interface ParentReportResponse {
+  dailyBrief?: ParentDailyBrief | null;
   skills: SkillSummary[];
   recent: ObservationRow[];
   report?: ParentTrainingReport;
@@ -61,11 +73,11 @@ interface ParentReportResponse {
 function evidenceHealthLabel(health: ParentTrainingReportItem["evidenceHealth"]) {
   switch (health) {
     case "complete":
-      return "证据完整";
+      return "线索比较清楚";
     case "thin":
-      return "证据偏薄";
+      return "还需要再听一听";
     default:
-      return "刚起步";
+      return "刚开始观察";
   }
 }
 
@@ -80,9 +92,43 @@ function evidenceHealthClass(health: ParentTrainingReportItem["evidenceHealth"])
   }
 }
 
+function confidenceColor(confidence: number) {
+  return confidence >= 0.75
+    ? "text-green-600"
+    : confidence >= 0.5
+      ? "text-amber-600"
+      : "text-red-500";
+}
+
+function CollapsibleSection({
+  title,
+  kicker,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  kicker: string;
+  children: ReactNode;
+  defaultOpen?: boolean;
+}) {
+  return (
+    <details
+      open={defaultOpen}
+      className="rounded-2xl border border-border bg-white shadow-sm"
+    >
+      <summary className="cursor-pointer list-none px-5 py-4">
+        <p className="text-xs font-semibold uppercase tracking-widest text-accent">{kicker}</p>
+        <p className="mt-1 text-base font-semibold text-foreground">{title}</p>
+      </summary>
+      <div className="border-t border-border/70 px-5 py-5">{children}</div>
+    </details>
+  );
+}
+
 export default function ParentPage() {
   const isClient = useIsClient();
   const activeProfile = useProfileStore((state) => state.getActiveProfile());
+  const [storedDailyBrief, setStoredDailyBrief] = useState<ParentDailyBrief | null>(null);
   const [storedSkills, setStoredSkills] = useState<SkillSummary[]>([]);
   const [storedRecent, setStoredRecent] = useState<ObservationRow[]>([]);
   const [storedReport, setStoredReport] = useState<ParentTrainingReport | null>(null);
@@ -100,6 +146,7 @@ export default function ParentPage() {
       .then((response) => response.json())
       .then((data: ParentReportResponse) => {
         if (cancelled) return;
+        setStoredDailyBrief(data.dailyBrief ?? null);
         setStoredSkills(data.skills ?? []);
         setStoredRecent(data.recent ?? []);
         setStoredReport(data.report ?? null);
@@ -109,6 +156,7 @@ export default function ParentPage() {
       })
       .catch(() => {
         if (cancelled) return;
+        setStoredDailyBrief(null);
         setStoredSkills([]);
         setStoredRecent([]);
         setStoredReport(null);
@@ -124,29 +172,30 @@ export default function ParentPage() {
 
   const hasLoadedData = Boolean(hydratedProfile && loadedProfileId === hydratedProfile.id);
   const loading = Boolean(hydratedProfile && !hasLoadedData);
+  const dailyBrief = hasLoadedData ? storedDailyBrief : null;
   const skills = hasLoadedData ? storedSkills : [];
   const recent = hasLoadedData ? storedRecent : [];
   const report = hasLoadedData ? storedReport : null;
   const activitySessions = hasLoadedData ? storedSessions : [];
   const experimentalSessions = hasLoadedData ? storedExperimentalSessions : [];
-
-  const confidenceColor = (confidence: number) =>
-    confidence >= 0.75
-      ? "text-green-600"
-      : confidence >= 0.5
-        ? "text-amber-600"
-        : "text-red-500";
+  const hasDeepData = Boolean(
+    (report?.items.length ?? 0) > 0 ||
+    activitySessions.length > 0 ||
+    experimentalSessions.length > 0 ||
+    skills.length > 0 ||
+    recent.length > 0,
+  );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#F0FDF4] to-[#EFF6FF]">
+    <div className="min-h-screen bg-gradient-to-br from-[#F0FDF4] via-[#F8FAFC] to-[#EFF6FF]">
       <header className="flex items-center justify-between border-b border-border bg-white/90 px-6 py-4 backdrop-blur-sm">
-        <h1 className="text-lg font-bold text-foreground">家长训练报告</h1>
+        <h1 className="text-lg font-bold text-foreground">家长简报</h1>
         <Link href="/" className="text-sm text-accent underline">
           返回首页
         </Link>
       </header>
 
-      <main className="mx-auto max-w-2xl space-y-6 px-4 py-8">
+      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
         {!hydratedProfile && (
           <div className="rounded-2xl border border-border bg-white p-6 text-center">
             <p className="text-sm text-ink-soft">
@@ -163,209 +212,233 @@ export default function ParentPage() {
             <motion.section
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              className="rounded-2xl border border-border bg-white p-6 shadow-sm"
+              className="rounded-[28px] border border-border bg-white p-6 shadow-sm"
             >
-              <p className="text-xs font-semibold uppercase tracking-widest text-accent">孩子档案</p>
-              <h2 className="mt-2 text-xl font-bold">{hydratedProfile.nickname}</h2>
-              <p className="text-sm text-ink-soft">
-                训练偏好：{hydratedProfile.goalPreferences.join("、") || "综合"}
+              <p className="text-xs font-semibold uppercase tracking-widest text-accent">今天的陪聊对象</p>
+              <h2 className="mt-2 text-2xl font-bold text-foreground">{hydratedProfile.nickname}</h2>
+              <p className="mt-2 text-sm leading-6 text-ink-soft">
+                这里优先告诉你：今天聊了什么、孩子是怎么想的、明天可以怎么顺手接一句。
               </p>
             </motion.section>
 
             {loading && (
-              <p className="animate-pulse text-center text-sm text-ink-soft">报告生成中…</p>
+              <p className="animate-pulse text-center text-sm text-ink-soft">正在整理今天的简报…</p>
             )}
 
-            {!loading && skills.length === 0 && (
+            {!loading && !dailyBrief && !hasDeepData && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 className="rounded-2xl border border-border bg-white p-6 text-center"
               >
-                <p className="text-sm text-ink-soft">还没有训练记录，先去和脑脑互动几轮吧。</p>
+                <p className="text-sm text-ink-soft">今天还没有新的互动记录，先去和脑脑聊一小会儿吧。</p>
                 <Link
                   href="/session"
                   className="mt-3 inline-block rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white"
                 >
-                  开始互动
+                  开始今天的 5 分钟
                 </Link>
               </motion.div>
             )}
 
-            {report && report.items.length > 0 && (
+            {dailyBrief && (
               <motion.section
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.05 }}
-                className="rounded-2xl border border-border bg-white p-6 shadow-sm"
+                transition={{ delay: 0.04 }}
+                className="rounded-[32px] border border-border bg-white p-6 shadow-sm"
               >
-                <p className="text-xs font-semibold uppercase tracking-widest text-accent">训练解释</p>
-                <h3 className="mt-2 text-lg font-bold text-foreground">当前重点：{report.primaryFocus}</h3>
-                <p className="mt-1 text-xs text-ink-soft">
-                  生成时间：{new Date(report.generatedAt).toLocaleString("zh-CN")}
+                <p className="text-xs font-semibold uppercase tracking-widest text-accent">今日简报</p>
+                <h3 className="mt-2 text-xl font-bold text-foreground">{dailyBrief.summary}</h3>
+                <p className="mt-2 text-xs text-ink-soft">
+                  更新时间：{new Date(dailyBrief.generatedAt).toLocaleString("zh-CN")}
                 </p>
-                <div className="mt-4 space-y-4">
-                  {report.items.map((item) => (
-                    <div
-                      key={`${item.goalId}-${item.subGoalId}`}
-                      className="rounded-2xl border border-border/60 bg-surface/50 p-4"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold text-foreground">{item.goalLabel} / {item.label}</p>
-                          <p className="text-xs text-ink-soft">
-                            阶段：{item.stage} · 推荐难度：{item.recommendedDifficulty}
-                          </p>
-                        </div>
-                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${evidenceHealthClass(item.evidenceHealth)}`}>
-                          {evidenceHealthLabel(item.evidenceHealth)}
+
+                <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <div className="rounded-[24px] border border-emerald-200 bg-emerald-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-emerald-700">今天聊了什么</p>
+                    <p className="mt-3 text-base font-semibold text-foreground">{dailyBrief.questionTitle}</p>
+                  </div>
+                  <div className="rounded-[24px] border border-sky-200 bg-sky-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-sky-700">她是怎么想的</p>
+                    <p className="mt-3 text-sm leading-6 text-foreground">{dailyBrief.childThinking}</p>
+                  </div>
+                  <div className="rounded-[24px] border border-amber-200 bg-amber-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-amber-700">这次对她来说</p>
+                    <p className="mt-3 text-base font-semibold text-foreground">{dailyBrief.adaptationSummary ?? "脑脑还在继续观察"}</p>
+                    <p className="mt-2 text-sm leading-6 text-ink-soft">{dailyBrief.adaptationDetail ?? "等再多几次小聊天，系统会更稳定地判断她现在偏轻松还是偏吃力。"}</p>
+                  </div>
+                  <div className="rounded-[24px] border border-violet-200 bg-violet-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-violet-700">明天怎么接着问</p>
+                    <p className="mt-3 text-sm leading-6 text-foreground">{dailyBrief.nextPrompt}</p>
+                  </div>
+                </div>
+
+                {dailyBrief.recentTopics.length > 1 && (
+                  <div className="mt-5 rounded-[24px] border border-border/70 bg-surface/50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-accent">最近聊过</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {dailyBrief.recentTopics.map((topic) => (
+                        <span key={topic} className="rounded-full bg-white px-3 py-1 text-xs font-medium text-foreground shadow-sm">
+                          {topic}
                         </span>
-                      </div>
-                      <p className="mt-3 text-sm text-foreground">本次训练点：{item.trainingFocus}</p>
-                      <p className="mt-2 text-sm text-foreground">最强证据：{item.strongestEvidence}</p>
-                      <p className="mt-2 text-sm text-foreground">当前卡点：{item.stuckPoint}</p>
-                      <p className="mt-2 text-sm text-foreground">下一步建议：{item.nextSuggestion}</p>
-                      {item.recentEvidence.length > 0 && (
-                        <div className="mt-3 space-y-1">
-                          {item.recentEvidence.map((evidence, index) => (
-                            <p key={`${item.subGoalId}-${index}`} className="text-xs text-ink-soft">
-                              {index + 1}. {evidence}
-                            </p>
-                          ))}
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </motion.section>
+            )}
+
+            {(report?.items.length ?? 0) > 0 && (
+              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
+                <CollapsibleSection
+                  kicker="脑脑观察"
+                  title={`最近更适合这样接：${report?.primaryFocus ?? "先轻轻聊一轮"}`}
+                >
+                  <p className="text-xs text-ink-soft">
+                    生成时间：{report?.generatedAt ? new Date(report.generatedAt).toLocaleString("zh-CN") : "-"}
+                  </p>
+                  <div className="mt-4 space-y-4">
+                    {report?.items.map((item) => (
+                      <div
+                        key={`${item.goalId}-${item.subGoalId}`}
+                        className="rounded-2xl border border-border/60 bg-surface/50 p-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">{item.goalLabel} / {item.label}</p>
+                            <p className="text-xs text-ink-soft">现在大概在：{item.stage} · 下次先用：{item.recommendedDifficulty}</p>
+                          </div>
+                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${evidenceHealthClass(item.evidenceHealth)}`}>
+                            {evidenceHealthLabel(item.evidenceHealth)}
+                          </span>
                         </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </motion.section>
+                        <p className="mt-3 text-sm text-foreground">脑脑这次主要在看：{item.trainingFocus}</p>
+                        <p className="mt-2 text-sm text-foreground">最清楚的一条线索：{item.strongestEvidence}</p>
+                        <p className="mt-2 text-sm text-foreground">还需要慢慢接住的地方：{item.stuckPoint}</p>
+                        <p className="mt-2 text-sm text-foreground">明天可以这样接：{item.nextSuggestion}</p>
+                        {item.recentEvidence.length > 0 && (
+                          <div className="mt-3 space-y-1">
+                            {item.recentEvidence.map((evidence, index) => (
+                              <p key={`${item.subGoalId}-${index}`} className="text-xs text-ink-soft">
+                                {index + 1}. {evidence}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </CollapsibleSection>
+              </motion.div>
             )}
 
-            {activitySessions.length > 0 && (
-              <motion.section
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.08 }}
-                className="rounded-2xl border border-border bg-white p-6 shadow-sm"
-              >
-                <p className="text-xs font-semibold uppercase tracking-widest text-accent">最近活动会话</p>
-                <div className="mt-4 space-y-3">
-                  {activitySessions.slice(0, 6).map((session) => (
-                    <div key={session.id} className="rounded-xl border border-border/60 bg-surface/50 p-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-semibold text-foreground">{session.activityId}</p>
-                        <p className="text-xs text-ink-soft">{session.status}</p>
+            {(activitySessions.length > 0 || (report?.experimentalItems?.length ?? 0) > 0 || experimentalSessions.length > 0) && (
+              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
+                <CollapsibleSection kicker="回看记录" title="最近脑脑陪聊过的片段">
+                  {activitySessions.length > 0 && (
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">结构化小片段</p>
+                      <div className="mt-3 space-y-3">
+                        {activitySessions.slice(0, 6).map((session) => (
+                          <div key={session.id} className="rounded-xl border border-border/60 bg-surface/50 p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-sm font-semibold text-foreground">{session.activityId}</p>
+                              <p className="text-xs text-ink-soft">{session.status}</p>
+                            </div>
+                            <p className="mt-1 text-xs text-ink-soft">已经听到的想法：{session.completedEvidenceSlots.join("、") || "暂无"}</p>
+                            <p className="mt-1 text-xs text-ink-soft">下次还可以多听一点：{session.missingEvidenceSlots.join("、") || "无"}</p>
+                          </div>
+                        ))}
                       </div>
-                      <p className="mt-1 text-xs text-ink-soft">
-                        已覆盖证据：{session.completedEvidenceSlots.join("、") || "暂无"}
-                      </p>
-                      <p className="mt-1 text-xs text-ink-soft">
-                        缺失证据：{session.missingEvidenceSlots.join("、") || "无"}
-                      </p>
                     </div>
-                  ))}
-                </div>
-              </motion.section>
+                  )}
+
+                  {((report?.experimentalItems?.length ?? 0) > 0 || experimentalSessions.length > 0) && (
+                    <div className="mt-5">
+                      <p className="text-sm font-semibold text-foreground">实验互动</p>
+                      <div className="mt-3 space-y-3">
+                        {(report?.experimentalItems ?? []).map((item, index) => (
+                          <div key={`${item.goalId}-${item.activityId}-${index}`} className="rounded-xl border border-border/60 bg-surface/50 p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-sm font-semibold text-foreground">{item.goalId} / {item.activityId}</p>
+                              <p className="text-xs text-ink-soft">{new Date(item.updatedAt).toLocaleString("zh-CN")}</p>
+                            </div>
+                            <p className="mt-2 text-sm text-foreground">{item.summary}</p>
+                            <p className="mt-2 text-xs text-ink-soft">这些内容属于探索式陪聊，主要用来帮助脑脑下次更会接话。</p>
+                          </div>
+                        ))}
+                        {report?.experimentalItems?.length
+                          ? null
+                          : experimentalSessions.slice(0, 4).map((session) => (
+                              <div key={session.id} className="rounded-xl border border-border/60 bg-surface/50 p-3">
+                                <div className="flex items-center justify-between gap-3">
+                                  <p className="text-sm font-semibold text-foreground">{session.goalId} / {session.activityId}</p>
+                                  <p className="text-xs text-ink-soft">{session.status}</p>
+                                </div>
+                                <p className="mt-2 text-xs text-ink-soft">这是一条探索互动记录，主要用于回看孩子当时怎么想。</p>
+                              </div>
+                            ))}
+                      </div>
+                    </div>
+                  )}
+                </CollapsibleSection>
+              </motion.div>
             )}
 
-            {((report?.experimentalItems?.length ?? 0) > 0 || experimentalSessions.length > 0) && (
-              <motion.section
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.12 }}
-                className="rounded-2xl border border-border bg-white p-6 shadow-sm"
-              >
-                <p className="text-xs font-semibold uppercase tracking-widest text-accent">瀹炶抗浜掑姩</p>
-                <div className="mt-4 space-y-3">
-                  {(report?.experimentalItems ?? []).map((item, index) => (
-                    <div key={`${item.goalId}-${item.activityId}-${index}`} className="rounded-xl border border-border/60 bg-surface/50 p-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-semibold text-foreground">{item.goalId} / {item.activityId}</p>
-                        <p className="text-xs text-ink-soft">{new Date(item.updatedAt).toLocaleString("zh-CN")}</p>
+            {(skills.length > 0 || recent.length > 0) && (
+              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.16 }}>
+                <CollapsibleSection kicker="更多线索" title="最近脑脑看到的变化">
+                  {skills.length > 0 && (
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">最近常出现的想法方向 Top {skills.length}</p>
+                      <div className="mt-4 space-y-3">
+                        {skills.map((skill) => (
+                          <div key={skill.skill} className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-surface/50 p-3">
+                            <span className="text-sm font-medium text-foreground">{skill.skill}</span>
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs text-ink-soft">出现 {skill.count} 次</span>
+                              <span className={`text-sm font-bold ${confidenceColor(skill.avg_confidence)}`}>
+                                {Math.round(skill.avg_confidence * 100)}%
+                              </span>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <p className="mt-2 text-sm text-foreground">{item.summary}</p>
-                      <p className="mt-2 text-xs text-ink-soft">杩欎簺鍐呭灞炰簬瀹炶抗妯″紡锛屼笉璁″叆姝ｅ紡璁粌杩涘害銆?</p>
                     </div>
-                  ))}
-                  {report?.experimentalItems?.length ? null : experimentalSessions.slice(0, 4).map((session) => (
-                    <div key={session.id} className="rounded-xl border border-border/60 bg-surface/50 p-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-semibold text-foreground">{session.goalId} / {session.activityId}</p>
-                        <p className="text-xs text-ink-soft">{session.status}</p>
-                      </div>
-                      <p className="mt-2 text-xs text-ink-soft">杩欐槸瀹炶抗浜掑姩璁板綍锛屼笉浼氱敤鏉ユ洿鏂版帉鎻＄姸鎬併€?</p>
-                    </div>
-                  ))}
-                </div>
-              </motion.section>
-            )}
+                  )}
 
-            {skills.length > 0 && (
-              <motion.section
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="rounded-2xl border border-border bg-white p-6 shadow-sm"
-              >
-                <p className="text-xs font-semibold uppercase tracking-widest text-accent">
-                  近期练习能力 Top {skills.length}
-                </p>
-                <div className="mt-4 space-y-3">
-                  {skills.map((skill) => (
-                    <div key={skill.skill} className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-foreground">{skill.skill}</span>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs text-ink-soft">{skill.count} 次练习</span>
-                        <span className={`text-sm font-bold ${confidenceColor(skill.avg_confidence)}`}>
-                          {Math.round(skill.avg_confidence * 100)}%
-                        </span>
-                        <div className="h-2 w-24 overflow-hidden rounded-full bg-border">
-                          <div
-                            className="h-full rounded-full bg-accent transition-all"
-                            style={{ width: `${Math.round(skill.avg_confidence * 100)}%` }}
-                          />
-                        </div>
+                  {recent.length > 0 && (
+                    <div className="mt-5">
+                      <p className="text-sm font-semibold text-foreground">最近观察</p>
+                      <div className="mt-4 space-y-4">
+                        {recent.slice(0, 6).map((item) => (
+                          <div key={item.id} className="rounded-xl border border-border/60 bg-surface/50 p-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold text-accent">{item.skill}</span>
+                              <span className={`text-xs font-bold ${confidenceColor(item.confidence)}`}>
+                                {Math.round(item.confidence * 100)}%
+                              </span>
+                            </div>
+                            <p className="mt-1 text-sm text-foreground">{item.observation}</p>
+                            <p className="mt-1 text-xs text-ink-soft">{new Date(item.created_at).toLocaleString("zh-CN")}</p>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ))}
-                </div>
-              </motion.section>
-            )}
-
-            {recent.length > 0 && (
-              <motion.section
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="rounded-2xl border border-border bg-white p-6 shadow-sm"
-              >
-                <p className="text-xs font-semibold uppercase tracking-widest text-accent">最近观察记录</p>
-                <div className="mt-4 space-y-4">
-                  {recent.slice(0, 6).map((item) => (
-                    <div key={item.id} className="rounded-xl border border-border/60 bg-surface/50 p-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-accent">{item.skill}</span>
-                        <span className={`text-xs font-bold ${confidenceColor(item.confidence)}`}>
-                          {Math.round(item.confidence * 100)}%
-                        </span>
-                      </div>
-                      <p className="mt-1 text-sm text-foreground">{item.observation}</p>
-                      <p className="mt-1 text-xs text-ink-soft">
-                        {new Date(item.created_at).toLocaleString("zh-CN")}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </motion.section>
+                  )}
+                </CollapsibleSection>
+              </motion.div>
             )}
           </>
         )}
       </main>
 
-      <section className="mx-auto max-w-2xl px-4 pb-12">
+      <section className="mx-auto max-w-3xl px-4 pb-12">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
+          transition={{ delay: 0.24 }}
         >
           <SettingsPanel />
         </motion.div>

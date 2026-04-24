@@ -4,6 +4,8 @@ import type { ChildProfile, GoalId } from "@/types/goals";
 import { getActivity } from "@/content/activities/activity-templates";
 import { buildMockAgentTurn } from "@/lib/ai/mock";
 import { runAgentTurn, type AgentLoopContext } from "@/lib/agent/agent-loop";
+import { buildDailyQuestionMockTurn } from "@/lib/daily/mock";
+import { buildDailyQuestionActivity, selectDailyQuestion } from "@/lib/daily/select-daily-question";
 import { encodeSSE } from "@/lib/agent/stream-parser";
 import { shouldUseFastPath, runFastPath } from "@/lib/agent/fast-path";
 import { selectActivityForSubGoal } from "@/lib/agent/activity-selector";
@@ -45,6 +47,8 @@ export async function POST(req: NextRequest) {
     turnIndex = 0,
     lastTurnToolCalls,
     goalFocus = [],
+    themeId,
+    questionId,
     profile: reqProfile,
     recentActivityIds = [],
   } = body;
@@ -54,7 +58,14 @@ export async function POST(req: NextRequest) {
   }
 
   const providerMode = process.env.AI_PROVIDER_MODE ?? "qwen";
-  const turnRequest: AgentTurnRequest = { sessionId, input, inputType, inputMeta };
+  const turnRequest: AgentTurnRequest = {
+    sessionId,
+    input,
+    inputType,
+    inputMeta,
+    themeId,
+    questionId,
+  };
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -73,12 +84,17 @@ export async function POST(req: NextRequest) {
           birthday: "2018-01-01",
           goalPreferences: goalFocus,
         };
-        const focusGoalId = resolveGoalFocus(goalFocus, resolvedProfile);
         cleanupIdleActivitySessions({ profileId: resolvedProfile.id });
         evaluatePendingActivitySessions({ profileId: resolvedProfile.id, sessionId });
+        const requestedDailyQuestion = selectDailyQuestion({
+          themeId,
+          questionId,
+          rotationSeed: `${resolvedProfile.id}:${new Date().toISOString().slice(0, 10)}`,
+        });
+        const focusGoalId = requestedDailyQuestion?.goalId ?? resolveGoalFocus(goalFocus, resolvedProfile);
         const recentObservations = getRecentObservationSummaries(resolvedProfile.id, {
           limit: 50,
-          scoringMode: "formal_scored",
+          goalId: focusGoalId,
         });
         const hydratedProfile: ChildProfile = {
           ...resolvedProfile,
@@ -90,6 +106,52 @@ export async function POST(req: NextRequest) {
           focusGoalId,
           hydratedProfile.birthday,
         );
+
+        if (requestedDailyQuestion) {
+          if (!process.env.QWEN_API_KEY) {
+            for (const event of buildDailyQuestionMockTurn(requestedDailyQuestion, turnRequest, turnIndex)) {
+              controller.enqueue(encoder.encode(encodeSSE(event)));
+            }
+            return;
+          }
+
+          const trainingIntent = buildTrainingIntent({
+            masteryProfile,
+            subGoalId: requestedDailyQuestion.subGoalId,
+            activityId: requestedDailyQuestion.id,
+            birthday: hydratedProfile.birthday,
+          });
+
+          const context: AgentLoopContext = {
+            profile: hydratedProfile,
+            goalFocus: [focusGoalId],
+            turnIndex,
+            lastTurnToolCalls,
+            currentActivity: buildDailyQuestionActivity(requestedDailyQuestion, {
+              childInput: input,
+              turnIndex,
+            }),
+            currentActivityId: requestedDailyQuestion.id,
+            currentGoalId: requestedDailyQuestion.goalId,
+            currentSubGoalId: requestedDailyQuestion.subGoalId,
+            masteryProfile,
+            trainingIntent,
+            scoringMode: "experimental_unscored",
+          };
+
+          if (shouldUseFastPath(turnRequest, lastTurnToolCalls ?? [])) {
+            const fastEvents = await runFastPath(turnRequest, conversation, context);
+            for (const event of fastEvents) {
+              controller.enqueue(encoder.encode(encodeSSE(event)));
+            }
+          } else {
+            for await (const event of runAgentTurn(conversation, turnRequest, context)) {
+              controller.enqueue(encoder.encode(encodeSSE(event)));
+            }
+          }
+          return;
+        }
+
         const latestSession = getLatestActivitySessionForSession(sessionId);
         const sessionDowngradedToExperimental = latestSession?.scoring_mode === "formal_scored" &&
           latestSession?.status === "abandoned";

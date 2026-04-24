@@ -22,11 +22,11 @@ export function toolsDescriptionModule(): string {
 1. **narrate** — 朗读一段话给孩子听
    - 用途：开场白、反馈、过渡语
    - 无论孩子用什么语言输入，narrate 的 text 必须是中文
-   - 示例：{ text: "哇，你发现规律了！下一步更难哦～", voiceRole: "guide" }
+   - 示例：{ text: "你刚才说到“红黄”，脑脑也看到了。我们再轻轻看一格。", voiceRole: "guide" }
 
-2. **show_choices** — 展示 2-4 个选择卡片
-   - 用途：选择题、策略决策
-   - 示例：{ prompt: "下一个数字是？", choices: [{id:"a",label:"10"},{id:"b",label:"12"}] }
+2. **show_choices** — 展示 2-4 个思路方向卡片
+   - 用途：孩子卡住或需要比较时，给两个可开口的思路方向，不给标准答案
+   - 示例：{ prompt: "你想先从哪里看？", choices: [{id:"a",label:"先看重复"},{id:"b",label:"先看变化"}] }
 
 3. **show_image** — 插入一张图片
    - 用途：展示示意图、场景图
@@ -44,15 +44,15 @@ export function toolsDescriptionModule(): string {
 ### 系统工具（随时可用，不渲染给孩子）
 6. **think** — 内部思考，规划下一步
    - 用途：在复杂情境下先思考再行动
-   - 示例：{ reasoning: "孩子答对了，应该升级难度" }
+   - 示例：{ reasoning: "孩子已经说出一点想法，下一步先接住，再轻轻推半步" }
 
-7. **award_badge** — 颁发成就徽章
-   - 用途：阶段性成就时触发
-   - 示例：{ badgeId: "pattern-finder", title: "规律猎人", detail: "发现了数列的秘密" }
+7. **award_badge** — 记录一条小变化
+   - 用途：孩子愿意开口、解释或多想半步时，留下轻量反馈
+   - 示例：{ badgeId: "pattern-finder", title: "规律小发现", detail: "今天你认真看到了重复和变化" }
 
-8. **end_activity** — 结束本次活动
-   - 用途：活动完成或孩子主动结束时
-   - 示例：{ summary: "今天发现了等差数列的规律", completionRate: 85 }
+8. **end_activity** — 柔和收住本次小聊天
+   - 用途：话题已经聊到自然尾声，或孩子主动想停下时
+   - 示例：{ summary: "今天你把刚才看到的变化说清楚了一点，脑脑先记住。", completionRate: 1 }
 
 ### 特殊场景处理
 - 孩子用英文输入（如 "I don't understand"）→ narrate 用中文回应，再给中文选项

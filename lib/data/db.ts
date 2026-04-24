@@ -23,12 +23,37 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
+function isBusySchemaError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("database is locked") || message.includes("SQLITE_BUSY");
+}
+
 const dbPath = path.join(dataDir, "brainplay.sqlite");
 export const db = new Database(dbPath);
-db.pragma("journal_mode = WAL");
-db.pragma("busy_timeout = 5000");
+function safePragma(sql: string) {
+  try {
+    db.pragma(sql);
+  } catch (error) {
+    if (!isBusySchemaError(error)) {
+      throw error;
+    }
+  }
+}
 
-db.exec(`
+safePragma("journal_mode = WAL");
+safePragma("busy_timeout = 5000");
+
+function safeSchemaExec(sql: string) {
+  try {
+    db.exec(sql);
+  } catch (error) {
+    if (!isBusySchemaError(error)) {
+      throw error;
+    }
+  }
+}
+
+safeSchemaExec(`
   CREATE TABLE IF NOT EXISTS session_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     mode TEXT NOT NULL,
@@ -42,7 +67,17 @@ db.exec(`
 `);
 
 function ensureColumn(table: string, column: string, definition: string) {
-  const rows = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  const getRows = () => {
+    try {
+      return db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+    } catch (error) {
+      if (isBusySchemaError(error)) {
+        return [];
+      }
+      throw error;
+    }
+  };
+  const rows = getRows();
   if (rows.some((row) => row.name === column)) {
     return;
   }
@@ -50,6 +85,9 @@ function ensureColumn(table: string, column: string, definition: string) {
   try {
     db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   } catch (error) {
+    if (isBusySchemaError(error)) {
+      return;
+    }
     const message = error instanceof Error ? error.message : String(error);
     if (!message.includes("duplicate column name")) {
       throw error;
@@ -59,8 +97,14 @@ function ensureColumn(table: string, column: string, definition: string) {
 
 ensureColumn("session_logs", "scene_id", "TEXT");
 ensureColumn("session_logs", "math_evidence_json", "TEXT");
+ensureColumn("session_logs", "profile_id", "TEXT");
 
-db.exec(`
+safeSchemaExec(`
+  CREATE INDEX IF NOT EXISTS idx_session_logs_profile
+    ON session_logs(profile_id, created_at DESC);
+`);
+
+safeSchemaExec(`
   CREATE TABLE IF NOT EXISTS observations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     profile_id TEXT NOT NULL,
@@ -99,20 +143,20 @@ ensureColumn("observations", "recognized_evidence_kind", "TEXT");
 ensureColumn("observations", "repair_recommended", "TEXT");
 ensureColumn("observations", "silent_streak", "INTEGER");
 
-db.exec(`
+safeSchemaExec(`
   CREATE INDEX IF NOT EXISTS idx_observations_profile
     ON observations(profile_id, created_at DESC);
 `);
-db.exec(`
+safeSchemaExec(`
   CREATE INDEX IF NOT EXISTS idx_observations_skill
     ON observations(profile_id, skill, created_at DESC);
 `);
-db.exec(`
+safeSchemaExec(`
   CREATE INDEX IF NOT EXISTS idx_observations_activity_session
     ON observations(activity_session_id, created_at DESC);
 `);
 
-db.exec(`
+safeSchemaExec(`
   CREATE TABLE IF NOT EXISTS activity_sessions (
     id TEXT PRIMARY KEY,
     session_id TEXT NOT NULL,
@@ -135,20 +179,20 @@ db.exec(`
   );
 `);
 
-db.exec(`
+safeSchemaExec(`
   CREATE INDEX IF NOT EXISTS idx_activity_sessions_profile
     ON activity_sessions(profile_id, updated_at DESC);
 `);
-db.exec(`
+safeSchemaExec(`
   CREATE INDEX IF NOT EXISTS idx_activity_sessions_session
     ON activity_sessions(session_id, updated_at DESC);
 `);
-db.exec(`
+safeSchemaExec(`
   CREATE INDEX IF NOT EXISTS idx_activity_sessions_pending
     ON activity_sessions(evaluator_status, updated_at DESC);
 `);
 
-db.exec(`
+safeSchemaExec(`
   CREATE TABLE IF NOT EXISTS activity_session_events (
     id TEXT PRIMARY KEY,
     activity_session_id TEXT NOT NULL,
@@ -176,7 +220,7 @@ ensureColumn("activity_sessions", "challenge_generation_status", "TEXT");
 ensureColumn("activity_sessions", "challenge_source", "TEXT");
 ensureColumn("activity_session_events", "scoring_mode", "TEXT");
 
-db.exec(`
+safeSchemaExec(`
   CREATE INDEX IF NOT EXISTS idx_activity_session_events_session
     ON activity_session_events(activity_session_id, created_at ASC);
 `);

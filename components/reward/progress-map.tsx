@@ -1,64 +1,66 @@
 "use client";
-/**
- * T7.1 — ProgressMap 重写
- * 去掉旧 content/scenes 依赖，改为通用进度展示。
- */
+
+export interface ProgressMapNode {
+  id: string;
+  title: string;
+  detail: string;
+  status: "done" | "active" | "locked";
+}
 
 export function ProgressMap({
-  zone,
-  unlockedAreas,
-  visitedStorySceneIds = [],
+  title = "成长地图",
+  subtitle,
+  nodes,
 }: {
-  zone?: string;
-  unlockedAreas?: string[];
-  visitedStorySceneIds?: string[];
+  title?: string;
+  subtitle?: string;
+  nodes: ProgressMapNode[];
 }) {
-  const areas = unlockedAreas ?? [];
-  const visited = visitedStorySceneIds.length;
-
   return (
-    <div className="storybook-card sunrise-panel rounded-[28px] p-4">
+    <div className="storybook-card sunrise-panel rounded-[28px] p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="section-kicker">成长地图</p>
-          {zone && <p className="mt-2 text-sm text-ink-soft">当前区域：{zone}</p>}
+          <p className="section-kicker">{title}</p>
+          {subtitle && <p className="mt-2 text-sm text-ink-soft">{subtitle}</p>}
         </div>
-        {visited > 0 && (
-          <span className="rounded-full bg-white px-3 py-2 text-xs font-semibold text-accent shadow-sm">
-            已完成 {visited} 轮
-          </span>
-        )}
       </div>
 
-      {areas.length > 0 && (
-        <div className="mt-4 rounded-[24px] border border-accent/12 bg-white/78 px-4 py-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-accent">已解锁区域</p>
-          <div className="mt-3 space-y-2">
-            {areas.map((area, index) => (
-              <div
-                key={area}
-                className={`flex items-center gap-3 rounded-[20px] px-3 py-3 ${
-                  area === zone ? "bg-accent-soft/70" : "bg-[#fffdf8]"
-                }`}
-              >
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent text-xs font-semibold text-white">
+      <div className="mt-4 space-y-3">
+        {nodes.map((node, index) => {
+          const statusClass = node.status === "done"
+            ? "bg-emerald-50 border-emerald-200"
+            : node.status === "active"
+              ? "bg-amber-50 border-amber-200"
+              : "bg-slate-50 border-border/70";
+          const badgeClass = node.status === "done"
+            ? "bg-emerald-500 text-white"
+            : node.status === "active"
+              ? "bg-amber-400 text-white"
+              : "bg-slate-200 text-slate-600";
+          const statusLabel = node.status === "done"
+            ? "已亮起"
+            : node.status === "active"
+              ? "正在变亮"
+              : "还没到这一步";
+
+          return (
+            <div key={node.id} className={`rounded-[22px] border p-4 ${statusClass}`}>
+              <div className="flex items-start gap-3">
+                <span className={`inline-flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold ${badgeClass}`}>
                   {index + 1}
                 </span>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">{area}</p>
-                  <p className="text-xs text-ink-soft">
-                    {area === zone ? "你现在就在这里。" : "已解锁"}
-                  </p>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-foreground">{node.title}</p>
+                    <span className="text-[11px] font-semibold text-ink-soft">{statusLabel}</span>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-ink-soft">{node.detail}</p>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {areas.length === 0 && (
-        <p className="mt-4 text-sm text-ink-soft">和脑脑互动后，这里会显示你的成长轨迹。</p>
-      )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

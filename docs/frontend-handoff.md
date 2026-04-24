@@ -111,11 +111,11 @@
 
 核心文件：
 
-- [math-progression.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/content/math-progression.ts)
-- [math-story-kernels.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/content/math-story-kernels.ts)
-- [story-episodes.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/content/story-episodes.ts)
-- [tasks.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/content/tasks.ts)
-- [types/index.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/types/index.ts)
+- [math-progression.ts](../content/math-progression.ts)
+- [math-story-kernels.ts](../content/math-story-kernels.ts)
+- [story-episodes.ts](../content/story-episodes.ts)
+- [tasks.ts](../content/tasks.ts)
+- [types/index.ts](../types/index.ts)
 
 ### 5.3 AI Chat 已接通
 
@@ -129,10 +129,10 @@
 
 核心文件：
 
-- [chat.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/lib/ai/chat.ts)
-- [qwen-chat.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/lib/ai/qwen-chat.ts)
-- [chat-gateway-payload.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/lib/ai/chat-gateway-payload.ts)
-- [app/api/ai/chat/route.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/app/api/ai/chat/route.ts)
+- [chat.ts](../lib/ai/chat.ts)
+- [qwen-chat.ts](../lib/ai/qwen-chat.ts)
+- [chat-gateway-payload.ts](../lib/ai/chat-gateway-payload.ts)
+- [app/api/ai/chat/route.ts](../app/api/ai/chat/route.ts)
 
 ### 5.4 TTS 已接通
 
@@ -149,11 +149,11 @@
 
 核心文件：
 
-- [qwen-tts-realtime.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/lib/ai/qwen-tts-realtime.ts)
-- [aliyun-nls-tts.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/lib/ai/aliyun-nls-tts.ts)
-- [tts.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/lib/ai/tts.ts)
-- [app/api/ai/tts/route.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/app/api/ai/tts/route.ts)
-- [app/api/ai/tts/realtime/route.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/app/api/ai/tts/realtime/route.ts)
+- [qwen-tts-realtime.ts](../lib/ai/qwen-tts-realtime.ts)
+- [aliyun-nls-tts.ts](../lib/ai/aliyun-nls-tts.ts)
+- [tts.ts](../lib/ai/tts.ts)
+- [app/api/ai/tts/route.ts](../app/api/ai/tts/route.ts)
+- [app/api/ai/tts/realtime/route.ts](../app/api/ai/tts/realtime/route.ts)
 
 ### 5.5 数据记录与家长摘要已具备
 
@@ -166,10 +166,10 @@
 
 核心文件：
 
-- [db.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/lib/data/db.ts)
-- [session-log.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/lib/data/session-log.ts)
-- [app/api/progress/log/route.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/app/api/progress/log/route.ts)
-- [app/api/ai/summary/route.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/app/api/ai/summary/route.ts)
+- [db.ts](../lib/data/db.ts)
+- [session-log.ts](../lib/data/session-log.ts)
+- [app/api/progress/log/route.ts](../app/api/progress/log/route.ts)
+- [app/api/ai/summary/route.ts](../app/api/ai/summary/route.ts)
 
 ---
 
@@ -346,43 +346,43 @@ AI 角色行为要求：
 
 ### 产品/文档
 
-- [产品规划书.md](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/产品规划书.md)
-- [任务书.md](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/任务书.md)
-- [技术路线决策建议（Web原型 vs iOS App）.md](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/技术路线决策建议（Web原型%20vs%20iOS%20App）.md)
-- [技术选型建议.md](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/技术选型建议.md)
-- [信息架构与页面清单.md](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/信息架构与页面清单.md)
-- [stage1-closeout-and-mvp-gate.md](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/docs/stage1-closeout-and-mvp-gate.md)
+- [产品规划书.md](../产品规划书.md)
+- [任务书.md](../任务书.md)
+- [技术路线决策建议（Web原型 vs iOS App）.md](../技术路线决策建议（Web原型%20vs%20iOS%20App）.md)
+- [技术选型建议.md](../技术选型建议.md)
+- [信息架构与页面清单.md](../信息架构与页面清单.md)
+- [stage1-closeout-and-mvp-gate.md](../docs/stage1-closeout-and-mvp-gate.md)
 
 ### 内容层
 
-- [math-story-kernels.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/content/math-story-kernels.ts)
-- [story-episodes.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/content/story-episodes.ts)
-- [math-progression.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/content/math-progression.ts)
-- [tasks.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/content/tasks.ts)
+- [math-story-kernels.ts](../content/math-story-kernels.ts)
+- [story-episodes.ts](../content/story-episodes.ts)
+- [math-progression.ts](../content/math-progression.ts)
+- [tasks.ts](../content/tasks.ts)
 
 ### 类型
 
-- [index.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/types/index.ts)
+- [index.ts](../types/index.ts)
 
 ### AI 层
 
-- [chat.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/lib/ai/chat.ts)
-- [qwen-chat.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/lib/ai/qwen-chat.ts)
-- [chat-gateway-payload.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/lib/ai/chat-gateway-payload.ts)
-- [qwen-tts-realtime.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/lib/ai/qwen-tts-realtime.ts)
-- [aliyun-nls-tts.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/lib/ai/aliyun-nls-tts.ts)
-- [tts.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/lib/ai/tts.ts)
+- [chat.ts](../lib/ai/chat.ts)
+- [qwen-chat.ts](../lib/ai/qwen-chat.ts)
+- [chat-gateway-payload.ts](../lib/ai/chat-gateway-payload.ts)
+- [qwen-tts-realtime.ts](../lib/ai/qwen-tts-realtime.ts)
+- [aliyun-nls-tts.ts](../lib/ai/aliyun-nls-tts.ts)
+- [tts.ts](../lib/ai/tts.ts)
 
 ### API 路由
 
-- [chat route](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/app/api/ai/chat/route.ts)
-- [tts route](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/app/api/ai/tts/route.ts)
-- [realtime tts route](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/app/api/ai/tts/realtime/route.ts)
+- [chat route](../app/api/ai/chat/route.ts)
+- [tts route](../app/api/ai/tts/route.ts)
+- [realtime tts route](../app/api/ai/tts/realtime/route.ts)
 
 ### 数据
 
-- [db.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/lib/data/db.ts)
-- [session-log.ts](/C:/Users/Administrator/.openclaw/workspace/math-ai-kid/lib/data/session-log.ts)
+- [db.ts](../lib/data/db.ts)
+- [session-log.ts](../lib/data/session-log.ts)
 
 ---
 

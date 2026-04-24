@@ -1,12 +1,12 @@
 # BrainPlay Prototype
 
-阶段 1 的 Web 原型验证版，目标是先验证：
+当前仓库已经从早期多入口原型收敛到以 `/session` 为核心的 Web 训练原型，主要验证：
 
-- 首页和三条原型入口
-- 剧情主线的数学思维训练体验
-- 统一 AI 服务层
+- 首页和 `/session` 主会话入口
+- agent SSE 驱动的数学思维训练体验
+- 训练目标、证据评估和家长报告闭环
 - 语音输入和语音播报
-- 结果反馈、奖励页、家长页
+- 奖励页、家长页和设置页
 
 ## 技术栈
 
@@ -24,7 +24,7 @@ npm install
 npm run dev
 ```
 
-默认使用本地 mock AI。开发服务器启动后，可以跑一轮回归：
+默认不要求配置真实 AI key；当前主链路会在本地 structured/fallback/mock 逻辑下正常运行。开发服务器启动后，可以跑一轮回归：
 
 ```bash
 npm run smoke
@@ -65,6 +65,10 @@ QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 
 ## 文档
 
-- 契约说明：[docs/ai-gateway-contract.md](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/docs/ai-gateway-contract.md)
-- 联调说明：[docs/ai-gateway-runbook.md](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/docs/ai-gateway-runbook.md)
-- 内容系统：[docs/content-system.md](C:/Users/Administrator/.openclaw/workspace/math-ai-kid/docs/content-system.md)
+- 当前状态与下一批：[docs/current-status-and-next-batch.md](docs/current-status-and-next-batch.md)
+- 产品框架：[docs/micro-leap-inquiry-framework.md](docs/micro-leap-inquiry-framework.md)
+- 数学思维路线图：[docs/math-thinking-progression-map.md](docs/math-thinking-progression-map.md)
+- 数学实时升级机制设计稿：[docs/adaptive-math-runtime-design.md](docs/adaptive-math-runtime-design.md)
+- 契约说明：[docs/ai-gateway-contract.md](docs/ai-gateway-contract.md)
+- 联调说明：[docs/ai-gateway-runbook.md](docs/ai-gateway-runbook.md)
+- 内容系统：[docs/content-system.md](docs/content-system.md)

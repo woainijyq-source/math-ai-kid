@@ -83,7 +83,7 @@ export function enforceOrchestration(
     const fallbackNarrate: ToolCall = {
       id: `auto-narrate-${Date.now()}`,
       name: "narrate",
-      arguments: { text: "好的，我们来试试这个！", autoSpeak: true },
+      arguments: { text: "好，我们先轻轻接住这一小步。", autoSpeak: true },
     };
     calls = [fallbackNarrate, ...calls];
   }
@@ -97,7 +97,7 @@ export function enforceOrchestration(
     const narrateText = (narrateTool.arguments as Record<string, unknown>)?.text;
     const isGenericNarrate =
       typeof narrateText === "string" &&
-      (narrateText === "好的，我们来试试这个！" || narrateText.length < 5);
+      (narrateText === "好，我们先轻轻接住这一小步。" || narrateText.length < 5);
     if (isGenericNarrate && typeof inputPrompt === "string" && inputPrompt.length > 0) {
       console.debug("[followup-guard] replacing generic narrate with input prompt for TTS");
       narrateTool.arguments = {
@@ -125,7 +125,7 @@ export function checkActivityStructure(
       id: `auto-opening-${Date.now()}`,
       name: "narrate",
       arguments: {
-        text: "嗨！我是脑脑，今天我们一起来挑战一个超酷的任务！",
+        text: "嗨，我是脑脑。今天我们先聊一个小问题。",
         voiceRole: "guide",
         autoSpeak: true,
       },
