@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320" role="img" aria-label="年轻女老师开心">
+  <defs>
+    <linearGradient id="bg" x1="48" y1="32" x2="272" y2="292" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FEF3C7"/>
+      <stop offset="0.55" stop-color="#ECFDF5"/>
+      <stop offset="1" stop-color="#DBEAFE"/>
+    </linearGradient>
+    <linearGradient id="hair" x1="96" y1="58" x2="228" y2="212" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5B3A29"/>
+      <stop offset="1" stop-color="#2F1E16"/>
+    </linearGradient>
+    <linearGradient id="coat" x1="93" y1="198" x2="227" y2="292" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#0F766E"/>
+    </linearGradient>
+  </defs>
+  <circle cx="160" cy="160" r="140" fill="url(#bg)"/>
+  <path d="M72 274c10-54 45-88 88-88s78 34 88 88" fill="url(#coat)"/>
+  <path d="M102 274v-38c0-22 18-40 40-40h36c22 0 40 18 40 40v38" fill="#F8FAFC"/>
+  <path d="M122 222h76l-38 38z" fill="#FDE68A"/>
+  <path d="M100 144c-20-48 6-94 58-94 46 0 79 36 68 88-7 32-24 58-66 58-32 0-50-19-60-52z" fill="url(#hair)"/>
+  <path d="M109 140c-14-4-22 8-17 23 4 13 18 18 28 10z" fill="#F2C7A6"/>
+  <path d="M211 140c14-4 22 8 17 23-4 13-18 18-28 10z" fill="#F2C7A6"/>
+  <path d="M107 120c3-39 24-62 53-62s50 23 53 62v36c0 35-23 60-53 60s-53-25-53-60z" fill="#FFD7B8"/>
+  <path d="M109 123c12-4 29-15 39-35 18 24 43 36 65 37-1-44-24-70-55-70s-52 25-49 68z" fill="url(#hair)"/>
+  <circle cx="137" cy="145" r="5" fill="#1F2937"/>
+  <circle cx="183" cy="145" r="5" fill="#1F2937"/>
+  <path d="M145 176c10 10 23 10 33 0" fill="none" stroke="#B45309" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="125" cy="164" r="9" fill="#F9A8D4" opacity="0.6"/>
+  <circle cx="195" cy="164" r="9" fill="#F9A8D4" opacity="0.6"/>
+  <path d="M220 213l36-26" stroke="#854D0E" stroke-width="8" stroke-linecap="round"/>
+  <path d="M245 188l22 34" stroke="#854D0E" stroke-width="8" stroke-linecap="round"/>
+  <rect x="251" y="219" width="38" height="18" rx="5" transform="rotate(-34 251 219)" fill="#FBBF24"/>
+  <circle cx="94" cy="83" r="10" fill="#34D399"/>
+  <circle cx="239" cy="88" r="8" fill="#60A5FA"/>
+  <path d="M70 119l9 8 11-20" fill="none" stroke="#F59E0B" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

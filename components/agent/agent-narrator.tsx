@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 import { useTts } from "@/hooks/use-tts";
 import { TypewriterText } from "./typewriter-text";
 import { Avatar } from "./avatar";
+import { TEACHER_AVATAR_SRC } from "./teacher-character";
 
 interface AgentNarratorProps {
   text: string;
@@ -44,8 +45,8 @@ export function AgentNarrator({
       className="flex items-start gap-3"
     >
       <Avatar
-        src={avatarSrc ?? "/illustrations/character/robot-happy.png"}
-        fallback="🤖"
+        src={avatarSrc ?? TEACHER_AVATAR_SRC}
+        fallback="师"
         size={36}
         className="bp-avatar-ring mt-1"
       />

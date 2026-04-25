@@ -3,14 +3,82 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { sendStt } from "@/lib/ai/client";
 
-type VoiceState = "idle" | "recording" | "processing";
+export type VoiceState = "idle" | "recording" | "processing";
 
 const TARGET_SAMPLE_RATE = 16000;
+
+interface BrowserSpeechRecognitionAlternative {
+  transcript?: string;
+}
+
+interface BrowserSpeechRecognitionResult {
+  length: number;
+  [index: number]: BrowserSpeechRecognitionAlternative;
+}
+
+interface BrowserSpeechRecognitionEvent extends Event {
+  results: ArrayLike<BrowserSpeechRecognitionResult>;
+}
+
+interface BrowserSpeechRecognitionErrorEvent extends Event {
+  error?: string;
+}
+
+interface BrowserSpeechRecognition {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onstart: ((event: Event) => void) | null;
+  onresult: ((event: BrowserSpeechRecognitionEvent) => void) | null;
+  onerror: ((event: BrowserSpeechRecognitionErrorEvent) => void) | null;
+  onend: ((event: Event) => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort?: () => void;
+}
+
+type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
 
 export interface UseVoiceRecorderResult {
   voiceState: VoiceState;
   startRecording: () => Promise<void>;
   stopRecording: () => void;
+}
+
+function getBrowserSpeechRecognitionConstructor(): BrowserSpeechRecognitionConstructor | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const recognition = (
+    window as typeof window & {
+      SpeechRecognition?: BrowserSpeechRecognitionConstructor;
+      webkitSpeechRecognition?: BrowserSpeechRecognitionConstructor;
+    }
+  ).SpeechRecognition ?? (
+    window as typeof window & {
+      webkitSpeechRecognition?: BrowserSpeechRecognitionConstructor;
+    }
+  ).webkitSpeechRecognition;
+
+  return recognition ?? null;
+}
+
+function shouldUseBrowserSpeechRecognition() {
+  return process.env.NEXT_PUBLIC_USE_BROWSER_SPEECH_RECOGNITION === "1";
+}
+
+function readRecognitionTranscript(event: BrowserSpeechRecognitionEvent) {
+  let transcript = "";
+
+  for (let i = 0; i < event.results.length; i += 1) {
+    const result = event.results[i];
+    if (!result || result.length === 0) continue;
+    transcript += result[0]?.transcript ?? "";
+  }
+
+  return transcript.trim();
 }
 
 function mergeFloat32Chunks(chunks: Float32Array[]) {
@@ -92,6 +160,10 @@ export function useVoiceRecorder(
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const sinkRef = useRef<GainNode | null>(null);
+  const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
+  const usingBrowserRecognitionRef = useRef(false);
+  const stopRequestedRef = useRef(false);
+  const transcriptDeliveredRef = useRef(false);
   const chunksRef = useRef<Float32Array[]>([]);
   const sampleRateRef = useRef<number>(TARGET_SAMPLE_RATE);
 
@@ -103,7 +175,7 @@ export function useVoiceRecorder(
     errorRef.current = onError;
   }, [onError]);
 
-  const cleanup = useCallback(() => {
+  const cleanupAudioCapture = useCallback(() => {
     processorRef.current?.disconnect();
     sourceRef.current?.disconnect();
     sinkRef.current?.disconnect();
@@ -118,8 +190,93 @@ export function useVoiceRecorder(
     chunksRef.current = [];
   }, []);
 
+  const cleanupBrowserRecognition = useCallback((abort = false) => {
+    const recognition = recognitionRef.current;
+    recognitionRef.current = null;
+    usingBrowserRecognitionRef.current = false;
+    stopRequestedRef.current = false;
+    transcriptDeliveredRef.current = false;
+
+    if (!recognition) {
+      return;
+    }
+
+    recognition.onstart = null;
+    recognition.onresult = null;
+    recognition.onerror = null;
+    recognition.onend = null;
+
+    if (abort) {
+      try {
+        recognition.abort?.();
+      } catch {
+        // Ignore browser recognition abort failures.
+      }
+    }
+  }, []);
+
+  const cleanup = useCallback(() => {
+    cleanupAudioCapture();
+    cleanupBrowserRecognition(true);
+  }, [cleanupAudioCapture, cleanupBrowserRecognition]);
+
   const startRecording = useCallback(async () => {
     if (voiceState !== "idle") return;
+
+    const BrowserRecognition = shouldUseBrowserSpeechRecognition()
+      ? getBrowserSpeechRecognitionConstructor()
+      : null;
+    if (BrowserRecognition) {
+      try {
+        const recognition = new BrowserRecognition();
+        recognition.lang = "zh-CN";
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        usingBrowserRecognitionRef.current = true;
+        stopRequestedRef.current = false;
+        transcriptDeliveredRef.current = false;
+        recognitionRef.current = recognition;
+
+        recognition.onstart = () => {
+          setVoiceState("recording");
+        };
+
+        recognition.onresult = (event) => {
+          const transcript = readRecognitionTranscript(event);
+          if (!transcript) {
+            return;
+          }
+
+          transcriptDeliveredRef.current = true;
+          resultRef.current(transcript);
+        };
+
+        recognition.onerror = () => {
+          cleanupBrowserRecognition();
+          errorRef.current?.();
+          setVoiceState("idle");
+        };
+
+        recognition.onend = () => {
+          const delivered = transcriptDeliveredRef.current;
+          const manuallyStopped = stopRequestedRef.current;
+          cleanupBrowserRecognition();
+
+          if (!delivered && manuallyStopped) {
+            errorRef.current?.();
+          }
+
+          setVoiceState("idle");
+        };
+
+        recognition.start();
+        return;
+      } catch {
+        cleanupBrowserRecognition();
+      }
+    }
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -154,22 +311,30 @@ export function useVoiceRecorder(
       sourceRef.current = source;
       processorRef.current = processor;
       sinkRef.current = sink;
+      usingBrowserRecognitionRef.current = false;
 
       setVoiceState("recording");
     } catch {
       cleanup();
       errorRef.current?.();
     }
-  }, [cleanup, voiceState]);
+  }, [cleanup, cleanupBrowserRecognition, voiceState]);
 
   const stopRecording = useCallback(() => {
     if (voiceState !== "recording") return;
+
+    if (usingBrowserRecognitionRef.current) {
+      stopRequestedRef.current = true;
+      setVoiceState("processing");
+      recognitionRef.current?.stop();
+      return;
+    }
 
     const finalize = async () => {
       setVoiceState("processing");
       const merged = mergeFloat32Chunks(chunksRef.current);
       const sampleRate = sampleRateRef.current;
-      cleanup();
+      cleanupAudioCapture();
 
       if (merged.length === 0) {
         errorRef.current?.();
@@ -194,7 +359,7 @@ export function useVoiceRecorder(
     };
 
     void finalize();
-  }, [cleanup, voiceState]);
+  }, [cleanupAudioCapture, voiceState]);
 
   useEffect(() => cleanup, [cleanup]);
 

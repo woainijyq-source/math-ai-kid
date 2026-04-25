@@ -357,14 +357,14 @@ function buildAdaptationDetail(evidence: MathEvidence | undefined) {
     const stageLabel = getMathStageLabel(evidence.progressionStageId);
 
     if (evidence.difficultySignal === "too_easy") {
-      return `这次主要在“${stageLabel}”这一层，她已经能比较自然地往前想，${supportLabel}。脑脑下次会更愿意多加半步。`;
+      return `这次主要在“${stageLabel}”这一层，她已经能比较自然地往前想，${supportLabel}。林老师下次会更愿意多加半步。`;
     }
 
     if (evidence.difficultySignal === "too_hard") {
-      return `这次主要在“${stageLabel}”这一层，她有一点点吃力，${supportLabel}。脑脑下次会先把范围缩小一点，再把她带回来。`;
+      return `这次主要在“${stageLabel}”这一层，她有一点点吃力，${supportLabel}。林老师下次会先把范围缩小一点，再把她带回来。`;
     }
 
-    return `这次主要在“${stageLabel}”这一层，整体难度基本合适，${supportLabel}。脑脑会先把这一层继续做稳。`;
+    return `这次主要在“${stageLabel}”这一层，整体难度基本合适，${supportLabel}。林老师会先把这一层继续做稳。`;
   }
 
   const themeLabel = getThemeLabel(evidence.themeId) ?? "这个方向";
@@ -372,14 +372,14 @@ function buildAdaptationDetail(evidence: MathEvidence | undefined) {
   const levelPrefix = themeLevelLabel ? `主要在“${themeLevelLabel}”这一层，` : "";
 
   if (evidence.difficultySignal === "too_easy") {
-    return `这次在“${themeLabel}”这条线上，${levelPrefix}她已经能比较自然地往前想，${supportLabel}。脑脑下次会更愿意把问题再拧高半步。`;
+    return `这次在“${themeLabel}”这条线上，${levelPrefix}她已经能比较自然地往前想，${supportLabel}。林老师下次会更愿意把问题再拧高半步。`;
   }
 
   if (evidence.difficultySignal === "too_hard") {
-    return `这次在“${themeLabel}”这条线上，${levelPrefix}她有一点点吃力，${supportLabel}。脑脑下次会先把范围缩小一点，再把问题说得更轻一点。`;
+    return `这次在“${themeLabel}”这条线上，${levelPrefix}她有一点点吃力，${supportLabel}。林老师下次会先把范围缩小一点，再把问题说得更轻一点。`;
   }
 
-  return `这次在“${themeLabel}”这条线上，${levelPrefix}整体难度基本合适，${supportLabel}。脑脑会先沿着这一层继续聊稳。`;
+  return `这次在“${themeLabel}”这条线上，${levelPrefix}整体难度基本合适，${supportLabel}。林老师会先沿着这一层继续聊稳。`;
 }
 
 function buildNextPrompt(taskId: string, title: string, evidence?: MathEvidence) {
@@ -387,28 +387,28 @@ function buildNextPrompt(taskId: string, title: string, evidence?: MathEvidence)
     const nextStage = getMathStageLabel(evidence.nextSuggestedStageId);
 
     if (evidence.difficultySignal === "too_easy") {
-      return `下次脑脑会更愿意把聊天往“${nextStage}”那一层推半步，比如多一个条件、换一种说法，看看她是不是还能继续跟上。`;
+      return `下次林老师会更愿意把聊天往“${nextStage}”那一层推半步，比如多一个条件、换一种说法，看看她是不是还能继续跟上。`;
     }
 
     if (evidence.difficultySignal === "too_hard") {
-      return `下次脑脑会先留在更稳的范围里，把问题缩小一点，再看看她什么时候愿意自己往前迈一步。`;
+      return `下次林老师会先留在更稳的范围里，把问题缩小一点，再看看她什么时候愿意自己往前迈一步。`;
     }
 
-    return `下次脑脑大概率还会先留在“${nextStage}”附近，继续把这一层慢慢聊稳。`;
+    return `下次林老师大概率还会先留在“${nextStage}”附近，继续把这一层慢慢聊稳。`;
   }
 
   if (evidence?.themeId && evidence.nextSuggestedLevel) {
     const themeLabel = getThemeLabel(evidence.themeId) ?? "这个方向";
 
     if (evidence.difficultySignal === "too_easy") {
-      return `下次脑脑会继续围着“${themeLabel}”往前拧半步，比如多加一点条件、换一个角度，看看她是不是还能轻松跟上。`;
+      return `下次林老师会继续围着“${themeLabel}”往前拧半步，比如多加一点条件、换一个角度，看看她是不是还能轻松跟上。`;
     }
 
     if (evidence.difficultySignal === "too_hard") {
-      return `下次脑脑会继续留在“${themeLabel}”附近，但会先把问题说得更小、更轻一点，再慢慢把她带回来。`;
+      return `下次林老师会继续留在“${themeLabel}”附近，但会先把问题说得更小、更轻一点，再慢慢把她带回来。`;
     }
 
-    return `下次脑脑大概率还会先留在“${themeLabel}”这条线上，把这一层聊稳，再决定要不要往前推。`;
+    return `下次林老师大概率还会先留在“${themeLabel}”这条线上，把这一层聊稳，再决定要不要往前推。`;
   }
 
   if (taskId.startsWith("math-")) {
@@ -461,10 +461,10 @@ export function buildContinuitySnapshot(profileId?: string, themeId?: DailyTheme
   const label = buildContinuityLabel(latest.createdAt);
   const themeLabel = getThemeLabel(latest.mathEvidence?.themeId);
   const childThinking = pickChildThinking(latest);
-  const memoryLine = `${label}你们聊到“${latest.title}”时，脑脑还记得她当时说过：${childThinking}`;
+  const memoryLine = `${label}你们聊到“${latest.title}”时，林老师还记得她当时说过：${childThinking}`;
   const gentleOpen = themeLabel
-    ? `${label}我们聊过“${latest.title}”这件事。脑脑还记得你那时提到：${childThinking}。今天我想从“${themeLabel}”这个方向再轻轻接一下。`
-    : `${label}我们聊到“${latest.title}”时，脑脑记住了你当时的想法。今天想再轻轻接一下。`;
+    ? `${label}我们聊过“${latest.title}”这件事。林老师还记得你那时提到：${childThinking}。今天我想从“${themeLabel}”这个方向再轻轻接一下。`
+    : `${label}我们聊到“${latest.title}”时，林老师记住了你当时的想法。今天想再轻轻接一下。`;
 
   return {
     label,
@@ -588,7 +588,7 @@ function buildCurrentIdentity(logs: SessionLogItem[], streakDays: number) {
   const themeVariety = countThemeVariety(logs);
 
   if (streakDays >= 5) {
-    return "会回来找脑脑的小伙伴";
+    return "会回来找林老师的小伙伴";
   }
   if (reasoningCount >= 4) {
     return "会把理由说清的小思考家";
@@ -609,7 +609,7 @@ function buildMilestoneBadges(logs: SessionLogItem[], streakDays: number, active
     badges.push({
       id: "first-chat",
       label: "开口小火花",
-      detail: "已经留下第一段会被脑脑记住的小聊天。",
+      detail: "已经留下第一段会被林老师记住的小聊天。",
     });
   }
   if (streakDays >= 2) {
@@ -637,7 +637,7 @@ function buildMilestoneBadges(logs: SessionLogItem[], streakDays: number, active
     badges.push({
       id: "half-step-grower",
       label: "会往前多想半步",
-      detail: "不只是答一句，而是开始跟着脑脑多走半步。",
+      detail: "不只是答一句，而是开始跟着林老师多走半步。",
     });
   }
 
@@ -671,7 +671,7 @@ function buildGrowthMap(logs: SessionLogItem[], streakDays: number, activeDaysLa
     {
       id: "open-up",
       title: "愿意开口",
-      detail: "先把自己的想法说出来，让脑脑能接住。",
+      detail: "先把自己的想法说出来，让林老师能接住。",
       status: logs.length >= 1 ? "done" : "locked",
     },
     {
@@ -740,7 +740,7 @@ export function buildParentDailyBrief(profileId?: string): ParentDailyBrief | nu
 
   return {
     questionTitle: latest.title,
-    summary: `最近一次，脑脑和孩子围绕“${latest.title}”聊了一小段。${latest.completion}`,
+    summary: `最近一次，林老师和孩子围绕“${latest.title}”聊了一小段。${latest.completion}`,
     childThinking: pickChildThinking(latest),
     adaptationSummary: buildAdaptationSummary(latest.mathEvidence),
     adaptationDetail: buildAdaptationDetail(latest.mathEvidence),

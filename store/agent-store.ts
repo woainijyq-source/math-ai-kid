@@ -108,6 +108,8 @@ interface AgentState {
   pendingInputType: InputType | null;
   isStreaming: boolean;
   currentGoalFocus: string[];
+  requestedThemeId: DailyThemeId | null;
+  requestedQuestionId: string | null;
   currentThemeId: DailyThemeId | null;
   currentQuestionId: string | null;
   currentProfile: ChildProfile | null;
@@ -142,6 +144,8 @@ export const useAgentStore = create<AgentState>()(
       pendingInputType: null,
       isStreaming: false,
       currentGoalFocus: [],
+      requestedThemeId: null,
+      requestedQuestionId: null,
       currentThemeId: null,
       currentQuestionId: null,
       currentProfile: null,
@@ -158,6 +162,8 @@ export const useAgentStore = create<AgentState>()(
           activeToolCalls: [],
           conversation: [],
           currentGoalFocus: goalFocus,
+          requestedThemeId: options?.themeId ?? null,
+          requestedQuestionId: options?.questionId ?? null,
           currentThemeId: options?.themeId ?? null,
           currentQuestionId: options?.questionId ?? null,
           currentProfile: profile ?? null,
@@ -362,6 +368,8 @@ export const useAgentStore = create<AgentState>()(
         pendingInputType: null,
         isStreaming: false,
         currentGoalFocus: [],
+        requestedThemeId: null,
+        requestedQuestionId: null,
         currentThemeId: null,
         currentQuestionId: null,
         currentProfile: null,
@@ -377,6 +385,8 @@ export const useAgentStore = create<AgentState>()(
         sessionId: state.sessionId,
         conversation: state.conversation,
         currentGoalFocus: state.currentGoalFocus,
+        requestedThemeId: state.requestedThemeId,
+        requestedQuestionId: state.requestedQuestionId,
         currentThemeId: state.currentThemeId,
         currentQuestionId: state.currentQuestionId,
         currentProfile: state.currentProfile,

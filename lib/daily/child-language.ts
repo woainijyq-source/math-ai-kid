@@ -69,16 +69,16 @@ export function buildMirrorLead(
   signalType?: DailyChildSignal["type"],
 ) {
   if (signalType === "uncertain") {
-    return "脑脑听到你还在想。";
+    return "林老师听到你还在想。";
   }
   if (signalType === "resistant") {
-    return "脑脑听到你现在有点不想继续。";
+    return "林老师听到你现在有点不想继续。";
   }
   if (signalType === "off_topic") {
-    return "脑脑先接住你刚才想到的东西。";
+    return "林老师先接住你刚才想到的东西。";
   }
 
-  return `你刚才提到“${extractChildMirrorPhrase(input)}”，脑脑听到了。`;
+  return `你刚才提到“${extractChildMirrorPhrase(input)}”，林老师听到了。`;
 }
 
 export function buildSoftWrap(question: DailyQuestion, input: string) {
@@ -86,16 +86,16 @@ export function buildSoftWrap(question: DailyQuestion, input: string) {
 
   switch (question.themeId) {
     case "math":
-      return `脑脑记住你刚才想到的“${phrase}”了。今天你已经把数学小办法越想越清楚，我们先收到这里。`;
+      return `林老师记住你刚才想到的“${phrase}”了。今天你已经把数学小办法越想越清楚，我们先收到这里。`;
     case "pattern":
-      return `脑脑记住你刚才看到的“${phrase}”了。今天你已经把规律看出来了不少，我们先收到这里。`;
+      return `林老师记住你刚才看到的“${phrase}”了。今天你已经把规律看出来了不少，我们先收到这里。`;
     case "why":
-      return `脑脑记住你刚才说的“${phrase}”了。今天你已经在认真找原因，我们先收到这里。`;
+      return `林老师记住你刚才说的“${phrase}”了。今天你已经在认真找原因，我们先收到这里。`;
     case "fairness":
-      return `脑脑记住你刚才想到的“${phrase}”了。今天你已经在替大家想办法了，我们先收到这里。`;
+      return `林老师记住你刚才想到的“${phrase}”了。今天你已经在替大家想办法了，我们先收到这里。`;
     case "what-if":
     default:
-      return `脑脑记住你刚才想到的“${phrase}”了。今天你已经把“如果会怎样”想活了，我们先收到这里。`;
+      return `林老师记住你刚才想到的“${phrase}”了。今天你已经把“如果会怎样”想活了，我们先收到这里。`;
   }
 }
 

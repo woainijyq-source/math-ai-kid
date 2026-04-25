@@ -1,5 +1,6 @@
 import { PATTERN_RECOGNITION_CHALLENGE_BANK } from "@/content/goals/pattern-recognition-challenges";
 import { resolveOpenAIChatProvider } from "@/lib/ai/qwen-chat";
+import { AI_TEACHER_NAME } from "@/lib/agent/persona";
 import {
   getActivitySession,
   updateActivitySessionRuntime,
@@ -736,6 +737,15 @@ function buildVisibleSequenceText(spec: GeneratedPatternChallengeSpec): string {
   return spec.visualSpec.promptItems.map(describeVisualItem).join("，");
 }
 
+function buildVisibleFactSummary(spec: GeneratedPatternChallengeSpec): string {
+  const counts = new Map<string, number>();
+  for (const item of spec.visualSpec.promptItems) {
+    const label = describeVisualItem(item);
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  return `可见${[...counts.entries()].map(([label, count]) => `${label}${count}个`).join("，")}`;
+}
+
 function toDataUri(svg: string): string {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
@@ -779,7 +789,7 @@ function renderItemSvg(item: GeneratedPatternVisualItem, x: number, y: number): 
 
 export function buildPatternRecognitionImagePayload(
   spec: GeneratedPatternChallengeSpec,
-): { alt: string; imageUrl: string } {
+): { alt: string; imageUrl: string; patternSpec: Record<string, unknown> } {
   const tileWidth = 110;
   const startX = 36;
   const startY = 44;
@@ -800,6 +810,12 @@ export function buildPatternRecognitionImagePayload(
   return {
     alt: spec.visualSpec.altText ?? `${buildVisibleSequenceText(spec)}，然后是一个空格问号`,
     imageUrl: toDataUri(svg),
+    patternSpec: {
+      visibleSequence: spec.visualSpec.promptItems.map(describeVisualItem),
+      correctAnswer: spec.correctAnswer,
+      rule: spec.ruleModel.summary,
+      factSummary: buildVisibleFactSummary(spec),
+    },
   };
 }
 
@@ -864,7 +880,7 @@ export function buildPatternRecognitionStructuredToolCalls(input: {
       {
         id: `pattern-narrate-${input.turnIndex}-${Date.now()}`,
         name: "narrate",
-        arguments: { text: input.spec.prompt, speakerName: "脑脑", voiceRole: "guide", autoSpeak: true },
+        arguments: { text: input.spec.prompt, speakerName: AI_TEACHER_NAME, voiceRole: "guide", autoSpeak: true },
       },
       {
         id: `pattern-image-${input.turnIndex}-${Date.now()}`,
@@ -875,9 +891,9 @@ export function buildPatternRecognitionStructuredToolCalls(input: {
         id: `pattern-input-${input.turnIndex}-${Date.now()}`,
         name: "show_text_input",
         arguments: {
-          prompt: "先告诉脑脑，空格里你觉得更像什么；如果愿意，也说说你从哪儿看出来。",
+          prompt: "先告诉林老师，空格里你觉得更像什么；如果愿意，也说说你从哪儿看出来。",
           placeholder: buildIntroPlaceholder(input.spec),
-          submitLabel: "告诉脑脑",
+          submitLabel: "告诉林老师",
         },
       },
     ];
@@ -890,8 +906,8 @@ export function buildPatternRecognitionStructuredToolCalls(input: {
         id: `pattern-win-${input.turnIndex}-${Date.now()}`,
         name: "narrate",
         arguments: {
-          text: `脑脑看到你抓住了“${input.spec.ruleModel.summary}”。这里也正好是${input.spec.correctAnswer}，我们先把这段小发现收好。`,
-          speakerName: "脑脑",
+          text: `林老师看到你抓住了“${input.spec.ruleModel.summary}”。这里也正好是${input.spec.correctAnswer}，我们先把这段小发现收好。`,
+          speakerName: AI_TEACHER_NAME,
           voiceRole: "guide",
           autoSpeak: true,
         },
@@ -917,8 +933,8 @@ export function buildPatternRecognitionStructuredToolCalls(input: {
         id: `pattern-correct-${input.turnIndex}-${Date.now()}`,
         name: "narrate",
         arguments: {
-          text: `脑脑看到你选了${input.spec.correctAnswer}。再帮脑脑看一眼：你是从哪里发现这个规律的？`,
-          speakerName: "脑脑",
+          text: `林老师看到你选了${input.spec.correctAnswer}。再帮林老师看一眼：你是从哪里发现这个规律的？`,
+          speakerName: AI_TEACHER_NAME,
           voiceRole: "guide",
           autoSpeak: true,
         },
@@ -927,9 +943,9 @@ export function buildPatternRecognitionStructuredToolCalls(input: {
         id: `pattern-explain-${input.turnIndex}-${Date.now()}`,
         name: "show_text_input",
         arguments: {
-          prompt: "把你发现的小规律告诉脑脑，不用很长，短短一句也可以。",
+          prompt: "把你发现的小规律告诉林老师，不用很长，短短一句也可以。",
           placeholder: buildReasoningPlaceholder(input.spec),
-          submitLabel: "告诉脑脑",
+          submitLabel: "告诉林老师",
         },
       },
     ];
@@ -940,8 +956,8 @@ export function buildPatternRecognitionStructuredToolCalls(input: {
       id: `pattern-retry-${input.turnIndex}-${Date.now()}`,
       name: "narrate",
       arguments: {
-        text: `脑脑觉得这里还可以再看一眼。我们先回到这排图形：${buildVisibleSequenceText(input.spec)}。也想想为什么不像${input.spec.contrastTarget}。`,
-        speakerName: "脑脑",
+        text: `林老师觉得这里还可以再看一眼。我们先回到这排图形：${buildVisibleSequenceText(input.spec)}。也想想为什么不像${input.spec.contrastTarget}。`,
+        speakerName: AI_TEACHER_NAME,
         voiceRole: "guide",
         autoSpeak: true,
       },

@@ -234,7 +234,7 @@ export default function ParentPage() {
                 animate={{ opacity: 1 }}
                 className="bp-panel rounded-[34px] p-6 text-center"
               >
-                <p className="text-sm text-ink-soft">今天还没有新的互动记录，先去和脑脑聊一小会儿吧。</p>
+                <p className="text-sm text-ink-soft">今天还没有新的互动记录，先去和林老师聊一小会儿吧。</p>
                 <Link
                   href="/session"
                   className="bp-button-primary mt-3 px-5 py-2 text-sm"
@@ -268,7 +268,7 @@ export default function ParentPage() {
                   </div>
                   <div className="bp-stat p-4">
                     <p className="text-xs font-semibold uppercase tracking-widest text-amber-700">这次对她来说</p>
-                    <p className="mt-3 text-base font-semibold text-foreground">{dailyBrief.adaptationSummary ?? "脑脑还在继续观察"}</p>
+                    <p className="mt-3 text-base font-semibold text-foreground">{dailyBrief.adaptationSummary ?? "林老师还在继续观察"}</p>
                     <p className="mt-2 text-sm leading-6 text-ink-soft">{dailyBrief.adaptationDetail ?? "等再多几次小聊天，系统会更稳定地判断她现在偏轻松还是偏吃力。"}</p>
                   </div>
                   <div className="bp-stat p-4">
@@ -295,7 +295,7 @@ export default function ParentPage() {
             {(report?.items.length ?? 0) > 0 && (
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
                 <CollapsibleSection
-                  kicker="脑脑观察"
+                  kicker="林老师观察"
                   title={`最近更适合这样接：${report?.primaryFocus ?? "先轻轻聊一轮"}`}
                 >
                   <p className="text-xs text-ink-soft">
@@ -316,7 +316,7 @@ export default function ParentPage() {
                             {evidenceHealthLabel(item.evidenceHealth)}
                           </span>
                         </div>
-                        <p className="mt-3 text-sm text-foreground">脑脑这次主要在看：{item.trainingFocus}</p>
+                        <p className="mt-3 text-sm text-foreground">林老师这次主要在看：{item.trainingFocus}</p>
                         <p className="mt-2 text-sm text-foreground">最清楚的一条线索：{item.strongestEvidence}</p>
                         <p className="mt-2 text-sm text-foreground">还需要慢慢接住的地方：{item.stuckPoint}</p>
                         <p className="mt-2 text-sm text-foreground">明天可以这样接：{item.nextSuggestion}</p>
@@ -338,7 +338,7 @@ export default function ParentPage() {
 
             {(activitySessions.length > 0 || (report?.experimentalItems?.length ?? 0) > 0 || experimentalSessions.length > 0) && (
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
-                <CollapsibleSection kicker="回看记录" title="最近脑脑陪聊过的片段">
+                <CollapsibleSection kicker="回看记录" title="最近林老师陪聊过的片段">
                   {activitySessions.length > 0 && (
                     <div>
                       <p className="text-sm font-semibold text-foreground">结构化小片段</p>
@@ -368,7 +368,7 @@ export default function ParentPage() {
                               <p className="text-xs text-ink-soft">{new Date(item.updatedAt).toLocaleString("zh-CN")}</p>
                             </div>
                             <p className="mt-2 text-sm text-foreground">{item.summary}</p>
-                            <p className="mt-2 text-xs text-ink-soft">这些内容属于探索式陪聊，主要用来帮助脑脑下次更会接话。</p>
+                            <p className="mt-2 text-xs text-ink-soft">这些内容属于探索式陪聊，主要用来帮助林老师下次更会接话。</p>
                           </div>
                         ))}
                         {report?.experimentalItems?.length
@@ -391,7 +391,7 @@ export default function ParentPage() {
 
             {(skills.length > 0 || recent.length > 0) && (
               <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.16 }}>
-                <CollapsibleSection kicker="更多线索" title="最近脑脑看到的变化">
+                <CollapsibleSection kicker="更多线索" title="最近林老师看到的变化">
                   {skills.length > 0 && (
                     <div>
                       <p className="text-sm font-semibold text-foreground">最近常出现的想法方向 Top {skills.length}</p>

@@ -4,6 +4,7 @@ import { buildMirrorLead, buildSoftWrap, extractChildMirrorPhrase } from "@/lib/
 import type { ContinuitySnapshot } from "@/lib/data/session-log";
 import { inferLiveMathTurnAdaptation } from "@/lib/daily/math-adaptation";
 import { classifyDailyChildSignal } from "@/lib/daily/child-signal";
+import { AI_TEACHER_NAME } from "@/lib/agent/persona";
 import type { AgentStreamEvent, AgentTurnRequest, ToolCallResult } from "@/types/agent";
 import type { DailyQuestion } from "@/types/daily";
 
@@ -48,7 +49,7 @@ function buildInputTool(
   return mockToolCall("show_text_input", {
     prompt,
     placeholder: "先说说你的想法也可以。",
-    submitLabel: "告诉脑脑",
+    submitLabel: "告诉林老师",
   });
 }
 
@@ -111,7 +112,7 @@ function buildDynamicFollowUp(question: DailyQuestion, request: AgentTurnRequest
     case "gentle_rehook":
       return {
         narrate: `${playbook.warmPhrases[0]}。${mirrorLead} ${mathTurnAdaptation?.shouldShrinkScope ? "我们先把这件事缩小一点点，再回到刚才那个场景。" : "不过我们先回到刚才那个场景。"} ${question.mainQuestion}`,
-        inputPrompt: mathTurnAdaptation?.shouldShrinkScope ? "先挑一个更容易开口的小方向。" : "先给脑脑一个小想法就行。",
+        inputPrompt: mathTurnAdaptation?.shouldShrinkScope ? "先挑一个更容易开口的小方向。" : "先给林老师一个小想法就行。",
         offerChoices: Boolean(mathTurnAdaptation?.shouldOfferChoices),
         choiceScaffold,
       };
@@ -125,7 +126,7 @@ function buildDynamicFollowUp(question: DailyQuestion, request: AgentTurnRequest
     case "clarify_reasoning":
       return {
         narrate: `${mirrorLead} ${question.firstFollowUp}`,
-        inputPrompt: "再说一点点，告诉脑脑你为什么这样想。",
+        inputPrompt: "再说一点点，告诉林老师你为什么这样想。",
         offerChoices: false,
         choiceScaffold,
       };
@@ -136,15 +137,15 @@ function buildDynamicFollowUp(question: DailyQuestion, request: AgentTurnRequest
         narrate: `${mirrorLead} 那我们来比一比。${question.firstFollowUp}`,
         inputPrompt: offerChoices
           ? (choiceScaffold?.prompt ?? "你先选一个更像你的想法。")
-          : "再说一句，告诉脑脑你现在更偏向哪种想法。",
+          : "再说一句，告诉林老师你现在更偏向哪种想法。",
         offerChoices,
         choiceScaffold,
       };
       }
     case "push_half_step":
       return {
-        narrate: `脑脑已经跟上你说的“${mirrorPhrase}”了。${mathTurnAdaptation?.liveSignal === "too_easy" ? "这一轮你看起来挺轻松，那我们把它轻轻拧高半步。" : "那我们再往前走半步。"} ${question.twistFollowUp}`,
-        inputPrompt: "把你刚想到的新一步告诉脑脑。",
+        narrate: `林老师已经跟上你说的“${mirrorPhrase}”了。${mathTurnAdaptation?.liveSignal === "too_easy" ? "这一轮你看起来挺轻松，那我们把它轻轻拧高半步。" : "那我们再往前走半步。"} ${question.twistFollowUp}`,
+        inputPrompt: "把你刚想到的新一步告诉林老师。",
         offerChoices: false,
         choiceScaffold,
       };
@@ -160,9 +161,12 @@ function buildDynamicFollowUp(question: DailyQuestion, request: AgentTurnRequest
 }
 
 export function buildDailyQuestionMockStart(question: DailyQuestion, continuitySnapshot?: ContinuitySnapshot | null): AgentStreamEvent[] {
+  const continuityHint = continuitySnapshot
+    ? `上次你提到过一个办法，林老师记住了。`
+    : "";
   const narrate = mockToolCall("narrate", {
-    text: `${continuitySnapshot ? `${continuitySnapshot.gentleOpen} ` : ""}${question.sceneSetup} ${question.sceneDetail} ${question.mainQuestion}`,
-    speakerName: "脑脑",
+    text: `${continuityHint}${question.sceneSetup} ${question.sceneDetail} ${question.mainQuestion}`,
+    speakerName: AI_TEACHER_NAME,
     voiceRole: "guide",
     autoSpeak: true,
   });
@@ -171,7 +175,7 @@ export function buildDailyQuestionMockStart(question: DailyQuestion, continuityS
     : undefined;
   const inputTool = buildInputTool(
     question,
-    "先说说你的想法，脑脑会顺着你的话继续聊。",
+    "先说说你的想法，林老师会顺着你的话继续聊。",
     false,
     openingChoiceScaffold,
   );
@@ -192,7 +196,7 @@ export function buildDailyQuestionMockTurn(
     const closing = buildDynamicFollowUp(question, request, turnIndex);
     const narrate = mockToolCall("narrate", {
       text: closing.narrate,
-      speakerName: "脑脑",
+      speakerName: AI_TEACHER_NAME,
       voiceRole: "guide",
       autoSpeak: true,
     });
@@ -224,7 +228,7 @@ export function buildDailyQuestionMockTurn(
   const followUp = buildDynamicFollowUp(question, request, turnIndex);
   const narrate = mockToolCall("narrate", {
     text: followUp.narrate,
-    speakerName: "脑脑",
+    speakerName: AI_TEACHER_NAME,
     voiceRole: "guide",
     autoSpeak: true,
   });

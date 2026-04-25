@@ -125,7 +125,7 @@ export function checkActivityStructure(
       id: `auto-opening-${Date.now()}`,
       name: "narrate",
       arguments: {
-        text: "嗨，我是脑脑。今天我们先聊一个小问题。",
+        text: "嗨，我是林老师。今天我们先聊一个小问题。",
         voiceRole: "guide",
         autoSpeak: true,
       },

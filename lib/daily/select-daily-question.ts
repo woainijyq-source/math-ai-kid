@@ -154,8 +154,8 @@ export function buildDailyQuestionActivity(
     `后台映射：goal=${question.goalId} subGoal=${question.subGoalId} fallbackGoal=${fallbackGoalMapping?.goalId ?? question.goalId}`,
     `题目种子标题：${question.title}`,
     `场景画面：${buildBrainySceneSetup(question)}`,
-    `脑脑开场语气：${buildBrainySceneVoice(question)}`,
-    `脑脑为什么会想聊这个：${buildBrainySceneReason(question)}`,
+    `林老师开场语气：${buildBrainySceneVoice(question)}`,
+    `林老师为什么会想聊这个：${buildBrainySceneReason(question)}`,
     `开场种子问题：${question.mainQuestion}`,
     `可参考追问种子 1：${question.firstFollowUp}`,
     `可参考追问种子 2：${question.twistFollowUp}`,
@@ -183,8 +183,8 @@ export function buildDailyQuestionActivity(
     ...(options?.continuitySnapshot
       ? [
           `连续记忆：${options.continuitySnapshot.memoryLine}`,
-          `如果要轻轻接上昨天/上次，可以这样开口：${options.continuitySnapshot.gentleOpen}`,
-          "连续记忆只轻轻提一句就够，不要一直重复，也不要像在复盘作业。",
+          "连续记忆只作为内部参考：不要照抄这段记忆，不要开场复盘上次内容。",
+          "如果非常自然，最多用半句轻轻接上；如果会显得重复，就完全不提。",
         ]
       : []),
     ...injectedBehavior,

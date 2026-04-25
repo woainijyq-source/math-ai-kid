@@ -15,10 +15,10 @@ export function buildBrainySceneSetup(question: DailyQuestion) {
 
 export function buildBrainySceneVoice(question: DailyQuestion) {
   const spoken = stripNarratorLead(question.sceneDetail);
-  return `脑脑轻轻说：${spoken}`;
+  return `林老师轻轻说：${spoken}`;
 }
 
 export function buildBrainySceneReason(question: DailyQuestion) {
   const reason = stripNarratorLead(question.hook);
-  return `脑脑心里想：${reason}`;
+  return `林老师心里想：${reason}`;
 }

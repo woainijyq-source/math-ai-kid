@@ -1,4 +1,6 @@
 import { isChatResponsePayload } from "@/lib/ai/validators";
+import { readLocalEnvValue } from "@/lib/server/local-env";
+import { getParentSettings } from "@/lib/server/parent-settings";
 import type { ChatResponsePayload } from "@/types";
 import type { ToolDefinition } from "@/lib/agent/tool-definitions";
 
@@ -22,71 +24,52 @@ export type QwenStreamChunk =
   | { type: "error"; message: string };
 
 function getDeepSeekBaseUrl() {
-  return (
-    process.env.DEEPSEEK_BASE_URL?.replace(/\/+$/, "") ??
-    "https://api.deepseek.com"
-  );
+  return readLocalEnvValue("DEEPSEEK_BASE_URL").replace(/\/+$/, "") || "https://api.deepseek.com";
 }
 
 function getDeepSeekModel() {
-  return process.env.DEEPSEEK_MODEL ?? "deepseek-chat";
+  return readLocalEnvValue("DEEPSEEK_MODEL") || "deepseek-chat";
 }
 
 function getQwenBaseUrl() {
-  return (
-    process.env.QWEN_BASE_URL?.replace(/\/+$/, "") ??
-    "https://dashscope.aliyuncs.com/compatible-mode/v1"
-  );
+  return readLocalEnvValue("QWEN_BASE_URL").replace(/\/+$/, "") || "https://dashscope.aliyuncs.com/compatible-mode/v1";
 }
 
 function getQwenModel() {
-  return process.env.QWEN_MODEL ?? "qwen3.6-plus";
+  return readLocalEnvValue("QWEN_MODEL") || "qwen3.6-plus";
 }
 
 export function resolveOpenAIChatProvider(): OpenAIChatProviderConfig | null {
-  const requested = process.env.AI_CHAT_PROVIDER?.trim().toLowerCase();
+  const requested = getParentSettings().chatProvider;
+  const qwenApiKey = readLocalEnvValue("QWEN_API_KEY");
+  const deepseekApiKey = readLocalEnvValue("DEEPSEEK_API_KEY");
+  const deepseekProvider = deepseekApiKey
+    ? {
+        name: "deepseek" as const,
+        apiKey: deepseekApiKey,
+        baseUrl: getDeepSeekBaseUrl(),
+        model: getDeepSeekModel(),
+      }
+    : null;
+
+  const qwenProvider = qwenApiKey
+    ? {
+        name: "qwen" as const,
+        apiKey: qwenApiKey,
+        baseUrl: getQwenBaseUrl(),
+        model: getQwenModel(),
+      }
+    : null;
 
   if (requested === "deepseek") {
-    return process.env.DEEPSEEK_API_KEY
-      ? {
-          name: "deepseek",
-          apiKey: process.env.DEEPSEEK_API_KEY,
-          baseUrl: getDeepSeekBaseUrl(),
-          model: getDeepSeekModel(),
-        }
-      : null;
+    return deepseekProvider ?? qwenProvider;
   }
 
   if (requested === "qwen") {
-    return process.env.QWEN_API_KEY
-      ? {
-          name: "qwen",
-          apiKey: process.env.QWEN_API_KEY,
-          baseUrl: getQwenBaseUrl(),
-          model: getQwenModel(),
-        }
-      : null;
+    return qwenProvider ?? deepseekProvider;
   }
 
-  if (process.env.DEEPSEEK_API_KEY) {
-    return {
-      name: "deepseek",
-      apiKey: process.env.DEEPSEEK_API_KEY,
-      baseUrl: getDeepSeekBaseUrl(),
-      model: getDeepSeekModel(),
-    };
-  }
-
-  if (process.env.QWEN_API_KEY) {
-    return {
-      name: "qwen",
-      apiKey: process.env.QWEN_API_KEY,
-      baseUrl: getQwenBaseUrl(),
-      model: getQwenModel(),
-    };
-  }
-
-  return null;
+  return deepseekProvider ?? qwenProvider;
 }
 
 export function isDirectChatEnabled() {

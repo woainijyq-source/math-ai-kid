@@ -112,7 +112,7 @@ function describeEvidence(observation: ObservationSummary): string {
     if (kind === "self_explanation") {
       return "孩子愿意开始说理由了，但表达还比较短。";
     }
-    return "这次证据还偏薄，脑脑下一轮会用更低压的方式继续追问。";
+    return "这次证据还偏薄，林老师下一轮会用更低压的方式继续追问。";
   }
 
   if (observation.status === "missing") {

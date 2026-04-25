@@ -4,10 +4,11 @@ import type { ChildProfile, GoalId } from "@/types/goals";
 import { buildMockAgentStart } from "@/lib/ai/mock";
 import { isDirectChatEnabled } from "@/lib/ai/qwen-chat";
 import { runAgentTurn, type AgentLoopContext } from "@/lib/agent/agent-loop";
-import { getMathStageGoalMapping } from "@/lib/daily/theme-goal-mapping";
+import { getMathStageGoalMapping, getThemeGoalMapping } from "@/lib/daily/theme-goal-mapping";
 import { buildDailyQuestionMockStart } from "@/lib/daily/mock";
 import { inferMathStageFromRecentLogs } from "@/lib/daily/math-adaptation";
 import { buildDailyQuestionActivity, selectDailyQuestion } from "@/lib/daily/select-daily-question";
+import { buildDynamicConversationActivity } from "@/lib/daily/dynamic-conversation";
 import { selectAdaptiveQuestion } from "@/lib/daily/theme-adaptation";
 import { encodeSSE } from "@/lib/agent/stream-parser";
 import { buildContinuitySnapshot, listRecentSessionLogs } from "@/lib/data/session-log";
@@ -81,23 +82,27 @@ export async function POST(req: NextRequest) {
           ? inferMathStageFromRecentLogs(recentSessionLogs)
           : undefined;
         const mathStageGoalMapping = mathStage ? getMathStageGoalMapping(mathStage) : undefined;
-        const requestedDailyQuestion = themeId
-          ? selectAdaptiveQuestion({
-              themeId,
-              questionId,
-              recentLogs: recentSessionLogs,
-              rotationSeed: `${profileId}:${new Date().toISOString().slice(0, 10)}`,
-            })
-          : selectDailyQuestion({
-              themeId,
-              questionId,
-              rotationSeed: `${profileId}:${new Date().toISOString().slice(0, 10)}`,
-            });
+        const requestedDailyQuestion = questionId
+          ? themeId
+            ? selectAdaptiveQuestion({
+                themeId,
+                questionId,
+                recentLogs: recentSessionLogs,
+                rotationSeed: `${profileId}:${new Date().toISOString().slice(0, 10)}`,
+              })
+            : selectDailyQuestion({
+                themeId,
+                questionId,
+                rotationSeed: `${profileId}:${new Date().toISOString().slice(0, 10)}`,
+              })
+          : undefined;
+        const activeThemeId = requestedDailyQuestion?.themeId ?? themeId;
+        const themeGoalMapping = getThemeGoalMapping(activeThemeId);
         const continuitySnapshot = buildContinuitySnapshot(
           profileId,
-          requestedDailyQuestion?.themeId ?? themeId ?? undefined,
+          activeThemeId ?? undefined,
         );
-        const focusGoalId = requestedDailyQuestion?.goalId ?? mathStageGoalMapping?.goalId ?? resolveGoalFocus(goalFocus, profile);
+        const focusGoalId = requestedDailyQuestion?.goalId ?? mathStageGoalMapping?.goalId ?? themeGoalMapping?.goalId ?? resolveGoalFocus(goalFocus, profile);
         const recentObservations = getRecentObservationSummaries(profileId, {
           limit: 40,
           goalId: focusGoalId,
@@ -107,6 +112,56 @@ export async function POST(req: NextRequest) {
           recentObservations,
         };
         const masteryProfile = buildMasteryProfile(profileId, recentObservations, focusGoalId, hydratedProfile.birthday);
+
+        if (!requestedDailyQuestion) {
+          const dynamicActivityId = `dynamic-${activeThemeId ?? focusGoalId}`;
+          const dynamicSubGoalId = mathStageGoalMapping?.subGoalId ?? themeGoalMapping?.subGoalId ?? masteryProfile.primarySubGoalId;
+          const trainingIntent = buildTrainingIntent({
+            masteryProfile,
+            subGoalId: dynamicSubGoalId,
+            activityId: dynamicActivityId,
+            birthday: hydratedProfile.birthday,
+          });
+
+          controller.enqueue(encoder.encode(encodeSSE({
+            type: "session_start" as const,
+            sessionId,
+            profileId,
+            timestamp: Date.now(),
+          })));
+
+          const context: AgentLoopContext = {
+            profile: hydratedProfile,
+            goalFocus: [focusGoalId],
+            turnIndex: 0,
+            currentActivity: buildDynamicConversationActivity({
+              themeId: activeThemeId,
+              turnIndex: 0,
+              continuitySnapshot,
+            }),
+            currentActivityId: dynamicActivityId,
+            currentGoalId: focusGoalId,
+            currentSubGoalId: dynamicSubGoalId,
+            masteryProfile,
+            trainingIntent,
+            scoringMode: "experimental_unscored",
+          };
+
+          const firstInput = {
+            sessionId,
+            input: "系统启动：请现场生成一个新的儿童对话开场，不要使用固定题库。",
+            inputType: "text" as const,
+            themeId: activeThemeId,
+          };
+          const initialConversation = [
+            { role: "user" as const, content: firstInput.input },
+          ];
+
+          for await (const event of runAgentTurn(initialConversation, firstInput, context)) {
+            controller.enqueue(encoder.encode(encodeSSE(event)));
+          }
+          return;
+        }
 
         if (requestedDailyQuestion) {
           const trainingIntent = buildTrainingIntent({

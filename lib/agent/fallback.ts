@@ -21,7 +21,7 @@ export function buildFallbackToolCalls(): ToolCall[] {
       id: nextId("fallback-narrate"),
       name: "narrate",
       arguments: {
-        text: "脑脑刚才有点没跟上。我们换个更小的方向接一下。",
+        text: "林老师刚才有点没跟上。我们换个更小的方向接一下。",
         voiceRole: "guide",
         autoSpeak: true,
       },
@@ -56,7 +56,7 @@ export function buildErrorRecoveryToolCalls(error: string): ToolCall[] {
         id: nextId("recovery-narrate"),
         name: "narrate",
         arguments: {
-          text: "网络好像有点慢。脑脑先陪你把这一小步接住。",
+          text: "网络好像有点慢。林老师先陪你把这一小步接住。",
           voiceRole: "guide",
           autoSpeak: true,
         },
@@ -82,7 +82,7 @@ export function buildErrorRecoveryToolCalls(error: string): ToolCall[] {
         id: nextId("ratelimit-narrate"),
         name: "narrate",
         arguments: {
-          text: "脑脑需要休息一小下，马上回来陪你！",
+          text: "林老师需要休息一小下，马上回来陪你！",
           voiceRole: "guide",
           autoSpeak: true,
         },

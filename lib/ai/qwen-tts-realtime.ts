@@ -1,4 +1,5 @@
 import WebSocket from "ws";
+import { readLocalEnvValue } from "@/lib/server/local-env";
 import type { TtsRequestPayload, VoiceRole } from "@/types";
 
 const defaultRealtimeUrl = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime";
@@ -27,23 +28,23 @@ interface RealtimeVoiceConfig {
 }
 
 function getRealtimeApiKey() {
-  return process.env.QWEN_API_KEY ?? "";
+  return readLocalEnvValue("QWEN_API_KEY");
 }
 
 function getRealtimeUrl() {
-  return process.env.QWEN_TTS_REALTIME_URL ?? defaultRealtimeUrl;
+  return readLocalEnvValue("QWEN_TTS_REALTIME_URL") || defaultRealtimeUrl;
 }
 
 function getRealtimeModel() {
-  return process.env.QWEN_TTS_MODEL ?? defaultRealtimeModel;
+  return readLocalEnvValue("QWEN_TTS_MODEL") || defaultRealtimeModel;
 }
 
 function getRealtimeFallbackModel() {
-  return process.env.QWEN_TTS_FALLBACK_MODEL ?? defaultRealtimeFallbackModel;
+  return readLocalEnvValue("QWEN_TTS_FALLBACK_MODEL") || defaultRealtimeFallbackModel;
 }
 
 function getSampleRate() {
-  const raw = Number(process.env.QWEN_TTS_SAMPLE_RATE ?? defaultSampleRate);
+  const raw = Number(readLocalEnvValue("QWEN_TTS_SAMPLE_RATE") || defaultSampleRate);
 
   if (Number.isFinite(raw) && raw > 0) {
     return raw;
@@ -59,7 +60,7 @@ function buildRealtimeVoiceConfig(
   const speakerHint = speakerName ? `角色名是${speakerName}。` : "";
 
   // 全局音色覆盖（家长端可配置，开发期锁定一个音色）
-  const voiceOverride = process.env.QWEN_TTS_VOICE_OVERRIDE?.trim();
+  const voiceOverride = readLocalEnvValue("QWEN_TTS_VOICE_OVERRIDE");
 
   switch (voiceRole) {
     case "guide":
@@ -146,8 +147,8 @@ export async function streamQwenRealtimeTts(
     let receivedAudio = false;
     let responseCreated = false;
     let completionNotified = false;
-    const firstAudioTimeoutMs = Number(process.env.QWEN_TTS_FIRST_BYTE_TIMEOUT_MS ?? 12000);
-    const completionTimeoutMs = Number(process.env.QWEN_TTS_COMPLETION_TIMEOUT_MS ?? 30000);
+    const firstAudioTimeoutMs = Number(readLocalEnvValue("QWEN_TTS_FIRST_BYTE_TIMEOUT_MS") || 12000);
+    const completionTimeoutMs = Number(readLocalEnvValue("QWEN_TTS_COMPLETION_TIMEOUT_MS") || 30000);
     let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
 
     const socket = new WebSocket(buildRealtimeUrlWithModel(model), {

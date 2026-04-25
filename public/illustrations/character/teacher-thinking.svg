@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320" role="img" aria-label="年轻女老师思考">
+  <defs>
+    <linearGradient id="bg" x1="36" y1="32" x2="280" y2="288" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E0F2FE"/>
+      <stop offset="0.5" stop-color="#FDF2F8"/>
+      <stop offset="1" stop-color="#F0FDFA"/>
+    </linearGradient>
+    <linearGradient id="hair" x1="99" y1="54" x2="225" y2="214" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#65412F"/>
+      <stop offset="1" stop-color="#2A1A12"/>
+    </linearGradient>
+  </defs>
+  <circle cx="160" cy="160" r="140" fill="url(#bg)"/>
+  <path d="M72 278c10-55 47-88 88-88s78 33 88 88" fill="#0E7490"/>
+  <path d="M104 278v-38c0-22 18-40 40-40h32c22 0 40 18 40 40v38" fill="#F8FAFC"/>
+  <path d="M122 225h76l-38 34z" fill="#C7D2FE"/>
+  <path d="M98 145c-18-52 9-94 61-94 48 0 78 37 63 92-9 34-28 55-62 55-35 0-53-20-62-53z" fill="url(#hair)"/>
+  <path d="M108 122c3-39 24-62 52-62s50 23 53 62v35c0 34-23 59-53 59s-52-25-52-59z" fill="#FFD7B8"/>
+  <path d="M110 124c16-6 30-19 40-39 16 22 39 34 64 39-2-42-24-70-55-70-30 0-52 27-49 70z" fill="url(#hair)"/>
+  <circle cx="137" cy="146" r="5" fill="#1F2937"/>
+  <circle cx="183" cy="146" r="5" fill="#1F2937"/>
+  <path d="M148 180c8 5 18 5 26 0" fill="none" stroke="#B45309" stroke-width="5" stroke-linecap="round"/>
+  <path d="M94 144c-13-3-20 9-16 23 4 13 17 18 27 10z" fill="#F2C7A6"/>
+  <path d="M214 144c13-3 20 9 16 23-4 13-17 18-27 10z" fill="#F2C7A6"/>
+  <circle cx="230" cy="79" r="18" fill="#FFFFFF" stroke="#38BDF8" stroke-width="5"/>
+  <text x="230" y="91" text-anchor="middle" font-size="34" font-family="Arial, sans-serif" font-weight="800" fill="#0E7490">?</text>
+  <path d="M91 224c14-13 33-15 52-6" fill="none" stroke="#0F766E" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="93" cy="228" r="10" fill="#FFD7B8"/>
+</svg>

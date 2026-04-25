@@ -7,6 +7,7 @@
 
 import { motion } from "framer-motion";
 import { Avatar } from "./avatar";
+import { TEACHER_AVATAR_SRC } from "./teacher-character";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 
 interface ChatBubbleProps {
@@ -40,7 +41,7 @@ export function ChatBubble({
   children,
   variant,
   avatarSrc,
-  avatarFallback = variant === "ai" ? "🤖" : "?",
+  avatarFallback = variant === "ai" ? "师" : "?",
   speakerName,
   voiceRole = "guide",
   animated = true,
@@ -65,14 +66,14 @@ export function ChatBubble({
   if (isAI) {
     const bubbleClass = BUBBLE_ACCENT[voiceRole] ?? BUBBLE_ACCENT.guide;
     return (
-      <motion.div {...motionProps} className="flex items-start gap-3">
+      <motion.div {...motionProps} className="flex items-start gap-3 sm:gap-4">
         <Avatar
-          src={avatarSrc ?? "/illustrations/character/robot-happy.png"}
+          src={avatarSrc ?? TEACHER_AVATAR_SRC}
           fallback={avatarFallback}
-          size={36}
+          size={40}
           className="bp-avatar-ring mt-1"
         />
-        <div className={`bp-chat-bubble bp-chat-bubble-ai max-w-[min(84%,44rem)] px-4 py-3 ${bubbleClass}`}>
+        <div className={`bp-chat-bubble bp-chat-bubble-ai max-w-[min(88%,46rem)] px-5 py-4 sm:px-6 ${bubbleClass}`}>
           {speakerName && (
             <p className={`mb-1 text-[11px] font-semibold uppercase tracking-widest ${ROLE_COLORS[voiceRole] ?? "text-accent"}`}>
               {speakerName}
@@ -86,14 +87,14 @@ export function ChatBubble({
 
   // User variant
   return (
-    <motion.div {...motionProps} className="flex items-start justify-end gap-3">
-      <div className="bp-chat-bubble bp-chat-bubble-user max-w-[min(78%,38rem)] px-4 py-3">
+    <motion.div {...motionProps} className="flex items-start justify-end gap-3 sm:gap-4">
+      <div className="bp-chat-bubble bp-chat-bubble-user max-w-[min(82%,42rem)] px-5 py-4 sm:px-6">
         <div className="text-sm leading-6 text-white">{children}</div>
       </div>
       <Avatar
         src={avatarSrc}
         fallback={avatarFallback}
-        size={36}
+        size={40}
         className="bp-avatar-ring mt-1"
       />
     </motion.div>

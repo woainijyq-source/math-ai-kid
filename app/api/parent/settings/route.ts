@@ -1,31 +1,65 @@
 import { NextResponse } from "next/server";
+import {
+  getParentSettings,
+  isChatProviderConfigured,
+  listChatProviderOptions,
+  saveParentSettings,
+  type ChatProviderName,
+} from "@/lib/server/parent-settings";
 
-/**
- * 家长端音色设置 API
- * 用进程内存存储（无需数据库），重启后读取 env 默认值。
- */
+function buildResponse() {
+  const settings = getParentSettings();
+  const providers = listChatProviderOptions();
+  const activeProvider = providers.find((item) => item.value === settings.chatProvider) ?? providers[0];
 
-// 进程内存缓存，重启后回退到 env 配置
-let currentVoice: string = process.env.QWEN_TTS_VOICE_OVERRIDE ?? "Mia";
+  return {
+    voice: settings.voice,
+    chatProvider: settings.chatProvider,
+    chatModel: activeProvider?.model ?? null,
+    providers,
+  };
+}
 
 export async function GET() {
-  return NextResponse.json({ voice: currentVoice });
+  return NextResponse.json(buildResponse());
 }
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as { voice?: string };
-  const VALID_VOICES = ["Mia", "Cherry", "Mochi", "Moon", "Maia"];
+  const body = (await request.json().catch(() => ({}))) as {
+    voice?: string;
+    chatProvider?: ChatProviderName;
+  };
 
-  if (!body.voice || !VALID_VOICES.includes(body.voice)) {
-    return NextResponse.json({ error: "invalid voice" }, { status: 400 });
+  const nextSettings: {
+    voice?: string;
+    chatProvider?: ChatProviderName;
+  } = {};
+
+  if (typeof body.voice === "string") {
+    nextSettings.voice = body.voice;
   }
 
-  currentVoice = body.voice;
+  if (body.chatProvider === "deepseek" || body.chatProvider === "qwen") {
+    if (!isChatProviderConfigured(body.chatProvider)) {
+      return NextResponse.json(
+        { error: "chat_provider_not_configured", chatProvider: body.chatProvider },
+        { status: 400 },
+      );
+    }
+    nextSettings.chatProvider = body.chatProvider;
+  }
 
-  // 同步更新 qwen-tts-realtime 使用的音色（通过环境变量覆盖）
-  process.env.QWEN_TTS_VOICE_OVERRIDE = currentVoice;
+  saveParentSettings(nextSettings);
 
-  console.info("[parent/settings] voice updated to:", currentVoice);
+  const response = buildResponse();
+  console.info("[parent/settings] updated", {
+    voice: response.voice,
+    chatProvider: response.chatProvider,
+    chatModel: response.chatModel,
+  });
 
-  return NextResponse.json({ voice: currentVoice, ok: true });
+  return NextResponse.json({
+    ok: true,
+    ...response,
+  });
 }

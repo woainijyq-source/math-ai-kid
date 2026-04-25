@@ -6,7 +6,9 @@ import { buildMockAgentTurn } from "@/lib/ai/mock";
 import { isDirectChatEnabled } from "@/lib/ai/qwen-chat";
 import { runAgentTurn, type AgentLoopContext } from "@/lib/agent/agent-loop";
 import { buildDailyQuestionMockTurn } from "@/lib/daily/mock";
+import { buildDynamicConversationActivity } from "@/lib/daily/dynamic-conversation";
 import { buildDailyQuestionActivity, selectDailyQuestion } from "@/lib/daily/select-daily-question";
+import { getThemeGoalMapping } from "@/lib/daily/theme-goal-mapping";
 import { encodeSSE } from "@/lib/agent/stream-parser";
 import { shouldUseFastPath, runFastPath } from "@/lib/agent/fast-path";
 import { selectActivityForSubGoal } from "@/lib/agent/activity-selector";
@@ -87,12 +89,16 @@ export async function POST(req: NextRequest) {
         };
         cleanupIdleActivitySessions({ profileId: resolvedProfile.id });
         evaluatePendingActivitySessions({ profileId: resolvedProfile.id, sessionId });
-        const requestedDailyQuestion = selectDailyQuestion({
-          themeId,
-          questionId,
-          rotationSeed: `${resolvedProfile.id}:${new Date().toISOString().slice(0, 10)}`,
-        });
-        const focusGoalId = requestedDailyQuestion?.goalId ?? resolveGoalFocus(goalFocus, resolvedProfile);
+        const requestedDailyQuestion = questionId
+          ? selectDailyQuestion({
+              themeId,
+              questionId,
+              rotationSeed: `${resolvedProfile.id}:${new Date().toISOString().slice(0, 10)}`,
+            })
+          : undefined;
+        const activeThemeId = requestedDailyQuestion?.themeId ?? themeId;
+        const themeGoalMapping = getThemeGoalMapping(activeThemeId);
+        const focusGoalId = requestedDailyQuestion?.goalId ?? themeGoalMapping?.goalId ?? resolveGoalFocus(goalFocus, resolvedProfile);
         const recentObservations = getRecentObservationSummaries(resolvedProfile.id, {
           limit: 50,
           goalId: focusGoalId,
@@ -107,6 +113,40 @@ export async function POST(req: NextRequest) {
           focusGoalId,
           hydratedProfile.birthday,
         );
+
+        if (!requestedDailyQuestion) {
+          const dynamicActivityId = `dynamic-${activeThemeId ?? focusGoalId}`;
+          const dynamicSubGoalId = themeGoalMapping?.subGoalId ?? masteryProfile.primarySubGoalId;
+          const trainingIntent = buildTrainingIntent({
+            masteryProfile,
+            subGoalId: dynamicSubGoalId,
+            activityId: dynamicActivityId,
+            birthday: hydratedProfile.birthday,
+          });
+
+          const context: AgentLoopContext = {
+            profile: hydratedProfile,
+            goalFocus: [focusGoalId],
+            turnIndex,
+            lastTurnToolCalls,
+            currentActivity: buildDynamicConversationActivity({
+              themeId: activeThemeId,
+              childInput: input,
+              turnIndex,
+            }),
+            currentActivityId: dynamicActivityId,
+            currentGoalId: focusGoalId,
+            currentSubGoalId: dynamicSubGoalId,
+            masteryProfile,
+            trainingIntent,
+            scoringMode: "experimental_unscored",
+          };
+
+          for await (const event of runAgentTurn(conversation, turnRequest, context)) {
+            controller.enqueue(encoder.encode(encodeSSE(event)));
+          }
+          return;
+        }
 
         if (requestedDailyQuestion) {
           if (!isDirectChatEnabled()) {

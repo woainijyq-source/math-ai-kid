@@ -29,7 +29,7 @@ export function ResultPageClient() {
       >
         <Image
           src="/illustrations/character/brainy-encouraging.png"
-          alt="脑脑鼓励"
+          alt="林老师鼓励"
           width={120}
           height={120}
           className="mx-auto rounded-3xl"

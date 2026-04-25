@@ -47,6 +47,7 @@ export function ImageSlot({ alt, imageUrl, generatePrompt }: ImageSlotProps) {
   const cacheKey = useMemo(() => buildCacheKey(alt, generatePrompt), [alt, generatePrompt]);
   const cachedUrl = useMemo(() => generatedImageCache.get(cacheKey) ?? null, [cacheKey]);
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(() => generatedImageCache.get(cacheKey) ?? null);
+  const [brokenUrl, setBrokenUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -84,19 +85,22 @@ export function ImageSlot({ alt, imageUrl, generatePrompt }: ImageSlotProps) {
     };
   }, [alt, cacheKey, cachedUrl, generatePrompt, imageUrl]);
 
-  const src = imageUrl ?? generatedUrl ?? cachedUrl;
+  const candidateSrc = imageUrl ?? generatedUrl ?? cachedUrl;
+  const src = candidateSrc && candidateSrc !== brokenUrl ? candidateSrc : null;
   const generating = !src && !failed && Boolean(generatePrompt);
 
   if (src) {
     return (
-      <div className="overflow-hidden rounded-[28px] border border-white/70 bg-white/78 shadow-sm">
+      <div className="w-full max-w-[560px] overflow-hidden rounded-[24px] border border-white/70 bg-white/78 shadow-sm">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={src}
           alt={alt}
-          className="block w-full object-cover"
+          className="block aspect-[16/10] w-full object-cover"
           loading="eager"
           onError={() => {
+            generatedImageCache.delete(cacheKey);
+            setBrokenUrl(src);
             setGeneratedUrl(null);
             setFailed(true);
           }}
@@ -106,7 +110,7 @@ export function ImageSlot({ alt, imageUrl, generatePrompt }: ImageSlotProps) {
   }
 
   return (
-    <div className="flex min-h-[140px] items-center justify-center rounded-[28px] border-2 border-dashed border-accent/20 bg-white/58 px-4 py-6">
+    <div className="flex min-h-[180px] w-full max-w-[560px] items-center justify-center rounded-[24px] border-2 border-dashed border-accent/20 bg-white/58 px-4 py-6">
       <div className="text-center">
         <p className="text-2xl">{generating ? "⏳" : failed ? "😵" : "🖼️"}</p>
         <p className="mt-1 text-xs text-ink-soft">

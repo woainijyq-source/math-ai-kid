@@ -55,7 +55,7 @@ export function MathEvidenceCard({
               ))
             ) : (
               <div className="bp-muted-card px-4 py-3 text-sm leading-6 text-ink-soft">
-                等待这一轮小聊天结束后，脑脑会整理一点观察。
+                等待这一轮小聊天结束后，林老师会整理一点观察。
               </div>
             )}
           </div>

@@ -27,7 +27,7 @@ function toolCallEvent(tc: ToolCallResult, turnIndex = 0): AgentStreamEvent {
  */
 export function buildMockAgentStart(): AgentStreamEvent[] {
   const narrate = mockToolCall("narrate", {
-    text: "你好呀！我是脑脑，今天想和你聊一个小问题。",
+    text: "你好呀！我是林老师，今天想和你聊一个小问题。",
     voiceRole: "guide",
     autoSpeak: true,
   });
@@ -59,12 +59,12 @@ export function buildMockAgentTurn(input: AgentTurnRequest, turnIndex = 1): Agen
   // 第 5 轮之后结束活动
   if (turnIndex >= 5) {
     const narrate = mockToolCall("narrate", {
-      text: "脑脑把你刚才的小想法记住了，我们今天先聊到这里。",
+      text: "林老师把你刚才的小想法记住了，我们今天先聊到这里。",
       voiceRole: "guide",
       autoSpeak: true,
     });
     const endActivity = mockToolCall("end_activity", {
-      summary: "今天你愿意把自己的想法说出来，脑脑先把这一点小变化收好。",
+      summary: "今天你愿意把自己的想法说出来，林老师先把这一点小变化收好。",
       completionRate: 1,
     });
     return [
@@ -72,7 +72,7 @@ export function buildMockAgentTurn(input: AgentTurnRequest, turnIndex = 1): Agen
       toolCallEvent(endActivity, turnIndex),
       {
         type: "system_effect",
-        effect: { type: "end_activity", data: { summary: "今天的小聊天先收住，脑脑记住了你的想法。", completionRate: 1 } },
+        effect: { type: "end_activity", data: { summary: "今天的小聊天先收住，林老师记住了你的想法。", completionRate: 1 } },
         turnIndex,
       },
       { type: "turn_end", turnIndex, toolCallCount: 2, usedFastPath: false, elapsedMs: 80 },
@@ -82,7 +82,7 @@ export function buildMockAgentTurn(input: AgentTurnRequest, turnIndex = 1): Agen
   // 偶数轮：narrate + show_choices
   if (turnIndex % 2 === 0) {
     const narrate = mockToolCall("narrate", {
-      text: `脑脑听到你刚才那句了。我们再轻轻往前看一点。`,
+      text: `林老师听到你刚才那句了。我们再轻轻往前看一点。`,
       voiceRole: "guide",
       autoSpeak: true,
     });

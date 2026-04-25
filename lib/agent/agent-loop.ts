@@ -23,7 +23,10 @@ import { buildPromptAssembly, type PromptAssemblyRuntime } from "../training/pro
 import {
   buildPatternRecognitionStructuredToolCalls,
 } from "../training/pattern-activity-runtime";
+import { AI_TEACHER_NAME } from "./persona";
 import { getAgeInteractionBand } from "@/prompts/modules/age-adapter";
+
+const DIALOGUE_TOOLS = FIRST_LAUNCH_TOOLS.filter((tool) => tool.function.name !== "think");
 
 export interface AgentLoopContext {
   profile: ChildProfile;
@@ -56,6 +59,51 @@ type QwenMessage = {
   name?: string;
 };
 
+interface PatternFactSpec {
+  visibleSequence: string[];
+  correctAnswer?: string;
+  rule?: string;
+  factSummary?: string;
+}
+
+interface CountConflict {
+  label: string;
+  actual: number;
+  claimed: number;
+}
+
+const SMALL_NUMBER_WORDS: Record<string, number> = {
+  零: 0,
+  一: 1,
+  二: 2,
+  两: 2,
+  三: 3,
+  四: 4,
+  五: 5,
+  六: 6,
+  七: 7,
+  八: 8,
+  九: 9,
+  十: 10,
+};
+
+const PATTERN_COLOR_TERMS: Array<{ label: string; terms: string[] }> = [
+  { label: "浅蓝色", terms: ["浅蓝色", "浅蓝", "light blue"] },
+  { label: "蓝色", terms: ["蓝色", "蓝", "blue"] },
+  { label: "红色", terms: ["红色", "红", "red"] },
+  { label: "黄色", terms: ["黄色", "黄", "yellow"] },
+  { label: "绿色", terms: ["绿色", "绿", "green"] },
+  { label: "紫色", terms: ["紫色", "紫", "purple", "violet"] },
+  { label: "橙色", terms: ["橙色", "橙", "orange"] },
+  { label: "粉色", terms: ["粉色", "粉", "pink"] },
+  { label: "黑色", terms: ["黑色", "黑", "black"] },
+  { label: "白色", terms: ["白色", "白", "white"] },
+  { label: "灰色", terms: ["灰色", "灰", "gray", "grey"] },
+];
+
+const COUNT_NUMBER_PATTERN = "(\\d+|零|一|二|两|三|四|五|六|七|八|九|十)";
+const COUNT_UNIT_PATTERN = "(?:个|颗|次|遍|枚|块|只|朵|条|张|片|粒)?";
+
 function toQwenMessages(messages: ConversationMessage[]): QwenMessage[] {
   return messages.map((message) => {
     const converted: QwenMessage = { role: message.role };
@@ -74,6 +122,216 @@ function toQwenMessages(messages: ConversationMessage[]): QwenMessage[] {
     }
     return converted;
   });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function parseSmallNumber(value: string): number | undefined {
+  if (/^\d+$/.test(value)) {
+    return Number(value);
+  }
+  return SMALL_NUMBER_WORDS[value];
+}
+
+function normalizeSequenceItem(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim().replace(/\s+/g, "");
+  return normalized || undefined;
+}
+
+function normalizePatternSpec(value: unknown): PatternFactSpec | undefined {
+  if (!isRecord(value)) return undefined;
+
+  const rawSequence = value.visibleSequence;
+  const visibleSequence = Array.isArray(rawSequence)
+    ? rawSequence.map(normalizeSequenceItem).filter((item): item is string => Boolean(item))
+    : typeof rawSequence === "string"
+      ? rawSequence
+          .split(/[、,，\s]+/)
+          .map(normalizeSequenceItem)
+          .filter((item): item is string => Boolean(item))
+      : [];
+
+  if (visibleSequence.length < 2) return undefined;
+
+  return {
+    visibleSequence,
+    correctAnswer: typeof value.correctAnswer === "string" ? value.correctAnswer.trim() : undefined,
+    rule: typeof value.rule === "string" ? value.rule.trim() : undefined,
+    factSummary: typeof value.factSummary === "string" ? value.factSummary.trim() : undefined,
+  };
+}
+
+function inferPatternSpecFromText(text: string): PatternFactSpec | undefined {
+  const beforeBlank = text.split(/(?:blank|empty|question|what comes next|\?|空格|空位|问号|虚线|dotted)/i)[0] ?? text;
+  const termEntries = PATTERN_COLOR_TERMS.flatMap((color) =>
+    color.terms.map((term) => ({ term, label: color.label })),
+  ).sort((left, right) => right.term.length - left.term.length);
+  const termPattern = termEntries.map((entry) => escapeRegExp(entry.term)).join("|");
+  const regex = new RegExp(termPattern, "gi");
+  const sequence: string[] = [];
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(beforeBlank)) !== null) {
+    const matched = match[0].toLowerCase();
+    const found = termEntries.find((entry) => entry.term.toLowerCase() === matched);
+    if (found) sequence.push(found.label);
+  }
+
+  if (sequence.length < 3 || sequence.length > 10) return undefined;
+  return {
+    visibleSequence: sequence,
+    factSummary: `可见${describeCountFacts(sequence)}`,
+  };
+}
+
+function normalizePatternSpecFromImageArgs(args: Record<string, unknown>): PatternFactSpec | undefined {
+  const explicit = normalizePatternSpec(args.patternSpec);
+  if (explicit) return explicit;
+
+  const text = [args.alt, args.generatePrompt]
+    .filter((value): value is string => typeof value === "string")
+    .join(" ");
+  return text ? inferPatternSpecFromText(text) : undefined;
+}
+
+function countSequenceItems(sequence: string[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const item of sequence) {
+    counts.set(item, (counts.get(item) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function describeCountFacts(sequence: string[]): string {
+  return [...countSequenceItems(sequence).entries()]
+    .map(([label, count]) => `${label}${count}个`)
+    .join("，");
+}
+
+function buildAliasesForLabel(label: string): string[] {
+  const aliases = new Set<string>([label]);
+  if (label.endsWith("色") && label.length > 1) {
+    aliases.add(label.slice(0, -1));
+  }
+  const color = PATTERN_COLOR_TERMS.find((entry) => entry.label === label);
+  for (const term of color?.terms ?? []) {
+    if (/^[\u4e00-\u9fa5]+$/.test(term)) aliases.add(term);
+  }
+  return [...aliases].sort((left, right) => right.length - left.length);
+}
+
+function detectCountConflict(childText: string, spec: PatternFactSpec): CountConflict | undefined {
+  const compactText = childText.replace(/\s+/g, "");
+  const counts = countSequenceItems(spec.visibleSequence);
+
+  for (const [label, actual] of counts.entries()) {
+    for (const alias of buildAliasesForLabel(label)) {
+      const escapedAlias = escapeRegExp(alias);
+      const forward = new RegExp(`${escapedAlias}[^，。！？,.!?]{0,10}${COUNT_NUMBER_PATTERN}${COUNT_UNIT_PATTERN}`, "i");
+      const reverse = new RegExp(`${COUNT_NUMBER_PATTERN}${COUNT_UNIT_PATTERN}[^，。！？,.!?]{0,10}${escapedAlias}`, "i");
+      const match = compactText.match(forward) ?? compactText.match(reverse);
+      if (!match) continue;
+      const claimed = parseSmallNumber(match[1]);
+      if (claimed !== undefined && claimed !== actual) {
+        return { label, actual, claimed };
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function findLatestPatternSpec(
+  conversation: ConversationMessage[],
+  lastTurnToolCalls?: ToolCall[],
+): PatternFactSpec | undefined {
+  const calls: ToolCall[] = [
+    ...conversation.flatMap((message) => message.toolCalls ?? []),
+    ...(lastTurnToolCalls ?? []),
+  ];
+
+  for (let index = calls.length - 1; index >= 0; index -= 1) {
+    const call = calls[index];
+    if (call.name !== "show_image") continue;
+    const spec = normalizePatternSpecFromImageArgs(call.arguments ?? {});
+    if (spec) return spec;
+  }
+
+  return undefined;
+}
+
+function buildPatternCorrectionText(conflict: CountConflict, spec: PatternFactSpec): string {
+  const factSummary = spec.factSummary || `可见${describeCountFacts(spec.visibleSequence)}`;
+  const sequence = spec.visibleSequence.join("、");
+  return `你在认真看，这步很好。不过${conflict.label}不是${conflict.claimed}个，是${conflict.actual}个；${factSummary}。再按顺序看：${sequence}。`;
+}
+
+function repairPatternFactResponse(
+  calls: ToolCall[],
+  childInput: AgentTurnRequest,
+  conversation: ConversationMessage[],
+  lastTurnToolCalls?: ToolCall[],
+): ToolCall[] {
+  const spec = findLatestPatternSpec(conversation, lastTurnToolCalls);
+  if (!spec) return calls;
+
+  const conflict = detectCountConflict(childInput.input, spec);
+  if (!conflict) return calls;
+
+  const correctionText = buildPatternCorrectionText(conflict, spec);
+  let replacedNarrate = false;
+  const repaired = calls
+    .filter((call) => call.name !== "end_activity")
+    .map((call) => {
+      if (call.name === "narrate" && !replacedNarrate) {
+        replacedNarrate = true;
+        return {
+          ...call,
+          arguments: {
+            ...call.arguments,
+            text: correctionText,
+            speakerName: call.arguments.speakerName ?? AI_TEACHER_NAME,
+            voiceRole: call.arguments.voiceRole ?? "guide",
+            autoSpeak: call.arguments.autoSpeak ?? true,
+          },
+        };
+      }
+
+      if (call.name === "show_text_input" || call.name === "request_voice") {
+        return {
+          ...call,
+          arguments: {
+            ...call.arguments,
+            prompt: "再看一眼：空格里更像什么？也可以说说你看到的顺序。",
+          },
+        };
+      }
+
+      return call;
+    });
+
+  if (replacedNarrate) return repaired;
+
+  return [
+    {
+      id: `pattern-fact-correction-${Date.now()}`,
+      name: "narrate",
+      arguments: {
+        text: correctionText,
+        speakerName: AI_TEACHER_NAME,
+        voiceRole: "guide",
+        autoSpeak: true,
+      },
+    },
+    ...repaired,
+  ];
 }
 
 function buildToolResultContent(tc: {
@@ -97,7 +355,17 @@ function buildToolResultContent(tc: {
     return JSON.stringify({ status: "spoken" });
   }
   if (name === "show_image") {
-    return JSON.stringify({ status: "displayed" });
+    try {
+      const args = JSON.parse(tc.function?.arguments ?? "{}") as Record<string, unknown>;
+      const patternSpec = normalizePatternSpecFromImageArgs(args);
+      return JSON.stringify(
+        patternSpec
+          ? { status: "displayed", alt: args.alt, patternSpec }
+          : { status: "displayed", alt: args.alt },
+      );
+    } catch {
+      return JSON.stringify({ status: "displayed" });
+    }
   }
   return JSON.stringify({ status: "ok" });
 }
@@ -312,6 +580,45 @@ function appendObservationCallIfNeeded(
   return [...normalizedCalls, buildFallbackObservationCall(childInput, context)];
 }
 
+function buildDynamicFallbackInputPrompt(context: AgentLoopContext): {
+  prompt: string;
+  placeholder: string;
+  submitLabel: string;
+} {
+  switch (context.currentSubGoalId) {
+    case "explain-reasoning":
+      return {
+        prompt: "你先说一个你想到的“为什么”，林老师接着听。",
+        placeholder: "比如：我觉得可能是因为……",
+        submitLabel: "说说原因",
+      };
+    case "inductive-generalization":
+      return {
+        prompt: "你先说说你发现哪里在重复，或者哪里在变化。",
+        placeholder: "比如：我看到它一直在……",
+        submitLabel: "告诉林老师",
+      };
+    case "rule-creation":
+      return {
+        prompt: "如果你来定规则，你会先怎么安排？",
+        placeholder: "比如：我会让大家先……",
+        submitLabel: "定个规则",
+      };
+    case "hypothetical-thinking":
+      return {
+        prompt: "如果真的这样了，你觉得第一件事会发生什么？",
+        placeholder: "比如：可能会先……",
+        submitLabel: "接着想",
+      };
+    default:
+      return {
+        prompt: "你先说一个办法，林老师听你怎么想。",
+        placeholder: "比如：我会先……因为……",
+        submitLabel: "告诉林老师",
+      };
+  }
+}
+
 function buildAutoInputPrompt(
   context: AgentLoopContext,
   trainingIntent?: TrainingIntent,
@@ -320,11 +627,15 @@ function buildAutoInputPrompt(
   placeholder: string;
   submitLabel: string;
 } {
+  if (context.currentActivityId?.startsWith("dynamic-")) {
+    return buildDynamicFallbackInputPrompt(context);
+  }
+
   return buildAgeAwareAutoInputPrompt(context, trainingIntent);
 
   if ((context.scoringMode ?? "experimental_unscored") !== "formal_scored") {
     return {
-      prompt: "脑脑在这里陪你。你现在最想说什么？",
+      prompt: "林老师在这里陪你。你现在最想说什么？",
       placeholder: "比如：我想聊今天的事 / 我想问一个问题……",
       submitLabel: "继续聊天",
     };
@@ -338,24 +649,24 @@ function buildAutoInputPrompt(
     target === "self_explanation" &&
     repairStrategy
   ) {
-    const handoff = (trainingIntent as TrainingIntent).handoffTemplate ?? "说到刚才那一题，脑脑还想追问一下。"; /*
-    const handoff = trainingIntent.handoffTemplate ?? "说到刚才那一题，脑脑还想追问一下。";
+    const handoff = (trainingIntent as TrainingIntent).handoffTemplate ?? "说到刚才那一题，林老师还想追问一下。"; /*
+    const handoff = trainingIntent.handoffTemplate ?? "说到刚才那一题，林老师还想追问一下。";
     */ switch (repairStrategy) {
       case "contrastive_rebuttal":
         return {
-          prompt: `${handoff} 你来告诉脑脑：为什么不能是另一个答案呢？`,
+          prompt: `${handoff} 你来告诉林老师：为什么不能是另一个答案呢？`,
           placeholder: "比如：因为它没有像前面那样……",
           submitLabel: "挡住错答案",
         };
       case "feynman_teach_me":
         return {
-          prompt: `${handoff} 你像小老师一样，带脑脑看一遍它是怎么变的。`,
+          prompt: `${handoff} 你像小老师一样，带林老师看一遍它是怎么变的。`,
           placeholder: "比如：它前面是……后面是……所以……",
-          submitLabel: "教教脑脑",
+          submitLabel: "教教林老师",
         };
       case "attention_recovery":
         return {
-          prompt: `${handoff} 脑脑想再跟上你刚才那一步。`,
+          prompt: `${handoff} 林老师想再跟上你刚才那一步。`,
           placeholder: "比如：我是看到……才选它的",
           submitLabel: "再说一遍",
         };
@@ -372,29 +683,29 @@ function buildAutoInputPrompt(
     case "self_explanation":
       if (goalId === "logical-reasoning") {
         return {
-          prompt: "先别只说答案。告诉脑脑你先排除了什么、为什么排除。",
+          prompt: "先别只说答案。告诉林老师你先排除了什么、为什么排除。",
           placeholder: "比如：我先排除……因为……",
           submitLabel: "说出推理",
         };
       }
       if (goalId === "language-thinking") {
         return {
-          prompt: "用一句完整的话告诉脑脑你的理由，最好把“因为”也说出来。",
+          prompt: "用一句完整的话告诉林老师你的理由，最好把“因为”也说出来。",
           placeholder: "比如：我觉得……因为……",
           submitLabel: "说完整",
         };
       }
       if (goalId === "strategy-thinking") {
         return {
-          prompt: "告诉脑脑你为什么选这一步，它比别的办法好在哪里？",
+          prompt: "告诉林老师你为什么选这一步，它比别的办法好在哪里？",
           placeholder: "比如：我选……因为这样会……",
           submitLabel: "解释策略",
         };
       }
       return {
-        prompt: "用一句话告诉脑脑：你为什么这样想？",
+        prompt: "用一句话告诉林老师：你为什么这样想？",
         placeholder: "比如：因为我发现……",
-        submitLabel: "告诉脑脑",
+        submitLabel: "告诉林老师",
       };
     case "strategy_prediction":
       return {
@@ -404,7 +715,7 @@ function buildAutoInputPrompt(
       };
     case "describe_observation":
       return {
-        prompt: "你先观察到了什么？用一句话告诉脑脑。",
+        prompt: "你先观察到了什么？用一句话告诉林老师。",
         placeholder: "比如：我看到……",
         submitLabel: "说出观察",
       };
@@ -423,7 +734,7 @@ function buildAutoInputPrompt(
     case "answer":
     default:
       return {
-        prompt: "把你的答案告诉脑脑，再顺便说说你的想法。",
+        prompt: "把你的答案告诉林老师，再顺便说说你的想法。",
         placeholder: "比如：我觉得是……因为……",
         submitLabel: "发送",
       };
@@ -442,20 +753,20 @@ function buildAgeAwareAutoInputPrompt(
 
   const ageCopy = {
     early_child: {
-      casualPrompt: "脑脑在这里陪你。你现在想说什么？",
+      casualPrompt: "林老师在这里陪你。你现在想说什么？",
       casualPlaceholder: "比如：我想聊今天的事……",
       casualSubmit: "继续聊",
-      explainPrompt: "用一句短短的话告诉脑脑，你为什么这样想？",
+      explainPrompt: "用一句短短的话告诉林老师，你为什么这样想？",
       explainPlaceholder: "比如：因为它一直在变……",
-      explainSubmit: "告诉脑脑",
+      explainSubmit: "告诉林老师",
     },
     younger_kid: {
-      casualPrompt: "脑脑在这里陪你。你现在最想说什么？",
+      casualPrompt: "林老师在这里陪你。你现在最想说什么？",
       casualPlaceholder: "比如：我想聊今天的事 / 我想问一个问题……",
       casualSubmit: "继续聊天",
-      explainPrompt: "用一句话告诉脑脑：你为什么这样想？",
+      explainPrompt: "用一句话告诉林老师：你为什么这样想？",
       explainPlaceholder: "比如：因为我发现……",
-      explainSubmit: "告诉脑脑",
+      explainSubmit: "告诉林老师",
     },
     middle_kid: {
       casualPrompt: "如果你想继续，我们可以直接接着聊。",
@@ -503,7 +814,7 @@ function buildAgeAwareAutoInputPrompt(
           };
         }
         return {
-          prompt: `${handoff} 你来告诉脑脑：为什么不能是另一个答案呢？`,
+          prompt: `${handoff} 你来告诉林老师：为什么不能是另一个答案呢？`,
           placeholder: "比如：因为它没有像前面那样……",
           submitLabel: "挡住错答案",
         };
@@ -516,9 +827,9 @@ function buildAgeAwareAutoInputPrompt(
           };
         }
         return {
-          prompt: `${handoff} 你像小老师一样，带脑脑看一遍它是怎么变的。`,
+          prompt: `${handoff} 你像小老师一样，带林老师看一遍它是怎么变的。`,
           placeholder: "比如：它前面是……后面是……所以……",
-          submitLabel: "教教脑脑",
+          submitLabel: "教教林老师",
         };
       case "attention_recovery":
         if (ageBand === "middle_kid" || ageBand === "older_kid") {
@@ -529,7 +840,7 @@ function buildAgeAwareAutoInputPrompt(
           };
         }
         return {
-          prompt: `${handoff} 脑脑想再跟上你刚才那一步。`,
+          prompt: `${handoff} 林老师想再跟上你刚才那一步。`,
           placeholder: "比如：我是看到……才选它的",
           submitLabel: "再说一遍",
         };
@@ -553,21 +864,21 @@ function buildAgeAwareAutoInputPrompt(
     case "self_explanation":
       if (goalId === "logical-reasoning") {
         return {
-          prompt: ageBand === "older_kid" ? "先说你排除了什么，再说为什么。" : "先别只说答案。告诉脑脑你先排除了什么、为什么排除。",
+          prompt: ageBand === "older_kid" ? "先说你排除了什么，再说为什么。" : "先别只说答案。告诉林老师你先排除了什么、为什么排除。",
           placeholder: "比如：我先排除……因为……",
           submitLabel: ageBand === "older_kid" ? "提交推理" : "说出推理",
         };
       }
       if (goalId === "language-thinking") {
         return {
-          prompt: ageBand === "older_kid" ? "用完整一句话说出理由。" : "用一句完整的话告诉脑脑你的理由，最好把“因为”也说出来。",
+          prompt: ageBand === "older_kid" ? "用完整一句话说出理由。" : "用一句完整的话告诉林老师你的理由，最好把“因为”也说出来。",
           placeholder: "比如：我觉得……因为……",
           submitLabel: ageBand === "older_kid" ? "提交句子" : "说完整",
         };
       }
       if (goalId === "strategy-thinking") {
         return {
-          prompt: ageBand === "older_kid" ? "说清你为什么选这一步，它比别的走法好在哪里。" : "告诉脑脑你为什么选这一步，它比别的办法好在哪里？",
+          prompt: ageBand === "older_kid" ? "说清你为什么选这一步，它比别的走法好在哪里。" : "告诉林老师你为什么选这一步，它比别的办法好在哪里？",
           placeholder: "比如：我选……因为这样会……",
           submitLabel: "解释策略",
         };
@@ -585,7 +896,7 @@ function buildAgeAwareAutoInputPrompt(
       };
     case "describe_observation":
       return {
-        prompt: ageBand === "older_kid" ? "先说你观察到了什么。" : "你先观察到了什么？用一句话告诉脑脑。",
+        prompt: ageBand === "older_kid" ? "先说你观察到了什么。" : "你先观察到了什么？用一句话告诉林老师。",
         placeholder: "比如：我看到……",
         submitLabel: "说出观察",
       };
@@ -604,7 +915,7 @@ function buildAgeAwareAutoInputPrompt(
     case "answer":
     default:
       return {
-        prompt: ageBand === "older_kid" ? "先给答案，再补一句你的想法。" : "把你的答案告诉脑脑，再顺便说说你的想法。",
+        prompt: ageBand === "older_kid" ? "先给答案，再补一句你的想法。" : "把你的答案告诉林老师，再顺便说说你的想法。",
         placeholder: "比如：我觉得是……因为……",
         submitLabel: "发送",
       };
@@ -685,8 +996,8 @@ function buildForceAbandonToolCalls(
       id: `force-abandon-narrate-${turnIndex}-${Date.now()}`,
       name: "narrate",
       arguments: {
-        text: "看来你现在更想聊点别的，我们的找规律游戏下次再玩。你想跟脑脑随便聊聊吗？",
-        speakerName: "脑脑",
+        text: "看来你现在更想聊点别的，我们的找规律游戏下次再玩。你想跟林老师随便聊聊吗？",
+        speakerName: AI_TEACHER_NAME,
         voiceRole: "guide",
         autoSpeak: true,
       },
@@ -710,7 +1021,7 @@ function buildForceAbandonToolCalls(
       arguments: {
         prompt: "那我们先不做题。你现在最想说什么？",
         placeholder: "比如：我想聊晚饭 / 我今天开心的事……",
-        submitLabel: "和脑脑聊天",
+        submitLabel: "和林老师聊天",
       },
     },
   ];
@@ -873,7 +1184,7 @@ export async function* runAgentTurn(
   let qwenError = "";
 
   try {
-    const stream = streamQwenWithTools(qwenMessages, FIRST_LAUNCH_TOOLS, {
+    const stream = streamQwenWithTools(qwenMessages, DIALOGUE_TOOLS, {
       temperature: 0.4,
       maxTokens: 1500,
       timeoutMs: 20000,
@@ -971,6 +1282,7 @@ export async function* runAgentTurn(
     promptRuntime.assemblyState,
   );
   orchestrated = collapseInteractiveTools(orchestrated);
+  orchestrated = repairPatternFactResponse(orchestrated, childInput, conversation, lastTurnToolCalls);
 
   if (orchestrated.length === 0) {
     orchestrated = buildFallbackToolCalls();

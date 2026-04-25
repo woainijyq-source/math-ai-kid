@@ -1,22 +1,20 @@
+import { readLocalEnvValue } from "@/lib/server/local-env";
+import { hasAliyunNlsTokenConfig, resolveAliyunNlsToken } from "@/lib/ai/aliyun-nls-token";
 import type { SttResponsePayload } from "@/types";
 
 const defaultSttUrl = "https://nls-gateway-cn-shanghai.aliyuncs.com/stream/v1/asr";
 const defaultSampleRate = 16000;
 
 function getNlsAppKey() {
-  return process.env.ALIYUN_NLS_APPKEY ?? "";
-}
-
-function getNlsToken() {
-  return process.env.ALIYUN_NLS_TOKEN ?? "";
+  return readLocalEnvValue("ALIYUN_NLS_APPKEY");
 }
 
 function getNlsSttUrl() {
-  return process.env.ALIYUN_NLS_STT_URL ?? defaultSttUrl;
+  return readLocalEnvValue("ALIYUN_NLS_STT_URL") || defaultSttUrl;
 }
 
 function getNlsSttSampleRate() {
-  const raw = Number(process.env.ALIYUN_NLS_STT_SAMPLE_RATE ?? defaultSampleRate);
+  const raw = Number(readLocalEnvValue("ALIYUN_NLS_STT_SAMPLE_RATE") || defaultSampleRate);
   return Number.isFinite(raw) && raw > 0 ? raw : defaultSampleRate;
 }
 
@@ -30,12 +28,13 @@ function inferAudioFormat(audio: File) {
 }
 
 export function canUseAliyunNlsStt() {
-  return Boolean(getNlsAppKey() && getNlsToken());
+  return Boolean(getNlsAppKey() && hasAliyunNlsTokenConfig());
 }
 
 export async function runAliyunNlsStt(audio: File): Promise<SttResponsePayload> {
   const format = inferAudioFormat(audio);
   const sampleRate = getNlsSttSampleRate();
+  const token = await resolveAliyunNlsToken();
   const url = new URL(getNlsSttUrl());
   url.searchParams.set("appkey", getNlsAppKey());
   url.searchParams.set("format", format);
@@ -47,7 +46,7 @@ export async function runAliyunNlsStt(audio: File): Promise<SttResponsePayload> 
   const response = await fetch(url.toString(), {
     method: "POST",
     headers: {
-      "X-NLS-Token": getNlsToken(),
+      "X-NLS-Token": token,
       "Content-Type": "application/octet-stream",
     },
     body: new Uint8Array(await audio.arrayBuffer()),

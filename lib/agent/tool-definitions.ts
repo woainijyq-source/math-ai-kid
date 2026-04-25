@@ -54,7 +54,7 @@ export const FIRST_LAUNCH_TOOLS: ToolDefinition[] = [
           },
           speakerName: {
             type: "string",
-            description: "说话角色名称，如脑脑",
+            description: "说话角色名称，如林老师",
           },
           voiceRole: {
             type: "string",
@@ -136,7 +136,7 @@ export const FIRST_LAUNCH_TOOLS: ToolDefinition[] = [
     function: {
       name: "show_image",
       description:
-        "在对话中插入一张图片，可以是示意图或场景图。展示型工具。",
+        "在对话中插入一张图片，可以是示意图或场景图。展示型工具。规律/数量图片必须附带 patternSpec，供后续事实校验使用。",
       parameters: {
         type: "object",
         properties: {
@@ -151,6 +151,30 @@ export const FIRST_LAUNCH_TOOLS: ToolDefinition[] = [
           generatePrompt: {
             type: "string",
             description: "若无 imageUrl，用于生成图片的提示词",
+          },
+          patternSpec: {
+            type: "object",
+            description:
+              "仅用于 AI 后续校验的隐藏答案卡。只有当图片是规律、数量、顺序、找不同等可判定题时填写；不要把这个字段读给孩子听。",
+            properties: {
+              visibleSequence: {
+                type: "array",
+                description: "孩子能看到的项目顺序，用简短中文标签，如 ['红色','蓝色','蓝色','红色']。",
+                items: { type: "string" },
+              },
+              correctAnswer: {
+                type: "string",
+                description: "空格或问题的正确答案，如 '蓝色'。",
+              },
+              rule: {
+                type: "string",
+                description: "本题规律的简短中文说明，如 '红、蓝、蓝三格一组循环'。",
+              },
+              factSummary: {
+                type: "string",
+                description: "可直接核对的事实摘要，如 '可见红色2个，蓝色2个'。",
+              },
+            },
           },
         },
         required: ["alt"],

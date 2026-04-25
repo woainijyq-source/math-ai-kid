@@ -1,4 +1,5 @@
 import { canUseQwenRealtimeTts, streamQwenRealtimeTts } from "@/lib/ai/qwen-tts-realtime";
+import { canUseVolcengineTtsV3, streamVolcengineTtsV3 } from "@/lib/ai/volcengine-tts-v3";
 import type { TtsRequestPayload } from "@/types";
 
 export const runtime = "nodejs";
@@ -48,25 +49,20 @@ export async function POST(request: Request) {
 
       void (async () => {
         try {
-          if (!canUseQwenRealtimeTts()) {
-            throw new Error("qwen realtime tts is not configured");
-          }
-
-          await streamQwenRealtimeTts(payload, {
+          const commonHandlers = {
             signal: request.signal,
-            onDebugEvent(event) {
-              trace.push(event.type);
-              console.info("[ai.tts.realtime.event]", {
-                type: event.type,
-              });
-            },
-            onStart(meta) {
+            onStart(meta: {
+              model: string;
+              sampleRate: number;
+              responseFormat: "pcm";
+              voice: string;
+            }) {
               send({
                 type: "start",
                 ...meta,
               });
             },
-            onAudioChunk(delta) {
+            onAudioChunk(delta: string) {
               send({
                 type: "audio",
                 delta,
@@ -77,7 +73,23 @@ export async function POST(request: Request) {
                 type: "done",
               });
             },
-          });
+          };
+
+          if (canUseVolcengineTtsV3()) {
+            await streamVolcengineTtsV3(payload, commonHandlers);
+          } else if (canUseQwenRealtimeTts()) {
+            await streamQwenRealtimeTts(payload, {
+              ...commonHandlers,
+              onDebugEvent(event) {
+                trace.push(event.type);
+                console.info("[ai.tts.realtime.event]", {
+                  type: event.type,
+                });
+              },
+            });
+          } else {
+            throw new Error("realtime tts is not configured");
+          }
         } catch (error) {
           console.error("[ai.tts.realtime.error]", {
             message:

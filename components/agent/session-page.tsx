@@ -4,7 +4,7 @@
  * 对话历史气泡（AI + User）+ 头像系统 + 动画增强 + 自动滚动
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
@@ -12,18 +12,18 @@ import { useAgentStore } from "@/store/agent-store";
 import { useProfileStore } from "@/store/profile-store";
 import { getDailyThemeDefinition } from "@/content/daily/theme-definitions";
 import { logCompletedSession } from "@/lib/data/client";
-import { buildBrainySceneReason, buildBrainySceneSetup, buildBrainySceneVoice } from "@/lib/daily/brainy-voice";
 import { getDailyQuestion } from "@/lib/daily/select-daily-question";
 import { assessAdaptiveConversation } from "@/lib/daily/theme-adaptation";
 import { UniversalRenderer } from "@/components/agent/universal-renderer";
 import { InputBar } from "@/components/agent/input-bar";
-import { RobotCharacter } from "@/components/agent/robot-character";
-import { useRobotMood } from "@/components/agent/use-robot-mood";
+import { TEACHER_AVATAR_SRC, TEACHER_NAME, TeacherCharacter } from "@/components/agent/teacher-character";
+import { useTeacherMood } from "@/components/agent/use-teacher-mood";
 import { ChatBubble } from "@/components/agent/chat-bubble";
 import { Avatar } from "@/components/agent/avatar";
 import { AvatarPicker } from "@/components/agent/avatar-picker";
 import { ImageSlot } from "@/components/agent/image-slot";
 import { useIsClient } from "@/hooks/use-is-client";
+import { primeAudioPlayback, useAudioUnlockPrompt } from "@/hooks/use-tts";
 import type { InputType, InputMeta, ToolCallResult } from "@/types/agent";
 import type { DailyThemeId } from "@/types/daily";
 
@@ -36,15 +36,17 @@ const BG_MAP: Record<string, string> = {
   "observation-induction": "/illustrations/backgrounds/general.png",
 };
 
-interface ContinuitySnapshot {
-  label: string;
-  questionTitle: string;
-  themeLabel?: string;
-  childThinking?: string;
-  memoryLine: string;
-  gentleOpen: string;
-  createdAt: string;
-}
+const INLINE_INPUT_TOOLS = new Set([
+  "show_choices",
+  "show_text_input",
+  "request_voice",
+  "show_number_input",
+  "request_photo",
+  "show_emotion_checkin",
+  "request_camera",
+  "show_drawing_canvas",
+  "show_drag_board",
+]);
 
 // ---------------------------------------------------------------------------
 // 创建档案表单（含头像选择）
@@ -75,20 +77,19 @@ function CreateProfileForm({ onCreated }: { onCreated: () => void }) {
       >
         <div className="mb-6 flex justify-center">
           <Image
-            src="/illustrations/character/robot-happy.png"
-            alt="脑脑"
+            src={TEACHER_AVATAR_SRC}
+            alt={TEACHER_NAME}
             width={96}
             height={96}
             className="rounded-3xl shadow-lg"
-            onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/illustrations/character/brainy-happy.png"; }}
           />
         </div>
         <form
           onSubmit={handleSubmit}
           className="bp-panel space-y-4 rounded-[32px] p-8"
         >
-          <h1 className="text-2xl font-bold text-foreground">先告诉脑脑你叫什么</h1>
-          <p className="text-sm text-ink-soft">第一次见面前，先做一个小档案，脑脑就能记住你喜欢怎么聊。</p>
+          <h1 className="text-2xl font-bold text-foreground">先告诉{TEACHER_NAME}你叫什么</h1>
+          <p className="text-sm text-ink-soft">第一次见面前，先做一个小档案，{TEACHER_NAME}就能记住你喜欢怎么聊。</p>
           <input
             type="text"
             value={nickname}
@@ -131,7 +132,7 @@ function ThinkingIndicator() {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
     >
-      <ChatBubble variant="ai" speakerName="脑脑">
+      <ChatBubble variant="ai" speakerName={TEACHER_NAME}>
         <div className="flex items-center gap-1">
           {[0, 1, 2].map((i) => (
             <motion.span
@@ -161,17 +162,57 @@ export function SessionPage({
   initialQuestionId?: string;
 }) {
   const activeProfile = useProfileStore((s) => s.getActiveProfile());
-  const { sessionId, currentThemeId, currentQuestionId, activeToolCalls, pendingInputType, isStreaming, error, conversation, sessionComplete, sessionSummary, startSession, sendTurn, reset } =
+  const {
+    sessionId,
+    requestedThemeId,
+    requestedQuestionId,
+    currentThemeId,
+    currentQuestionId,
+    activeToolCalls,
+    pendingInputType,
+    isStreaming,
+    error,
+    conversation,
+    sessionComplete,
+    sessionSummary,
+    startSession,
+    sendTurn,
+    reset,
+  } =
     useAgentStore();
   const [forceCreateForm, setForceCreateForm] = useState(false);
   const [isReviewingHistory, setIsReviewingHistory] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [continuitySnapshot, setContinuitySnapshot] = useState<ContinuitySnapshot | null>(null);
   const isClient = useIsClient();
-  const { mood, isSpeaking } = useRobotMood();
+  const { mood, isSpeaking } = useTeacherMood();
+  const { unlockNeeded, unlockAndReplay } = useAudioUnlockPrompt();
   const bottomRef = useRef<HTMLDivElement>(null);
   const shouldAutoScrollRef = useRef(true);
   const showCreateForm = !activeProfile || forceCreateForm;
+  const historyMessages = useMemo<Array<{ role: string; content?: string; toolCalls?: ToolCallResult[] }>>(() => {
+    const messages: Array<{ role: string; content?: string; toolCalls?: ToolCallResult[] }> = [];
+    if (!conversation.length) return messages;
+
+    let lastAssistantIdx = -1;
+    for (let i = conversation.length - 1; i >= 0; i -= 1) {
+      if (conversation[i].role === "assistant" || conversation[i].role === "tool") {
+        lastAssistantIdx = i;
+        break;
+      }
+    }
+
+    for (let i = 0; i < conversation.length; i += 1) {
+      const msg = conversation[i];
+      if (i >= lastAssistantIdx) continue;
+      if (msg.role === "user") {
+        messages.push({ role: "user", content: msg.content });
+      } else if (msg.role === "assistant") {
+        messages.push({ role: "assistant", toolCalls: msg.toolCalls as ToolCallResult[] | undefined });
+      }
+    }
+
+    return messages;
+  }, [conversation]);
 
   useEffect(() => {
     if (!isClient || !activeProfile) return;
@@ -182,8 +223,8 @@ export function SessionPage({
     if (
       sessionId && (
         (goalKey && sessionGoalKey !== goalKey) ||
-        (initialThemeId && currentThemeId !== initialThemeId) ||
-        (initialQuestionId && currentQuestionId !== initialQuestionId)
+        (requestedThemeId ?? null) !== (initialThemeId ?? null) ||
+        (requestedQuestionId ?? null) !== (initialQuestionId ?? null)
       )
     ) {
       reset();
@@ -205,33 +246,29 @@ export function SessionPage({
     initialGoal,
     initialThemeId,
     initialQuestionId,
+    requestedThemeId,
+    requestedQuestionId,
     currentThemeId,
     currentQuestionId,
   ]);
 
   useEffect(() => {
-    if (!activeProfile || !(currentThemeId ?? initialThemeId)) {
-      return;
-    }
+    if (!isClient) return;
 
-    let cancelled = false;
-    fetch(`/api/continuity/latest?profileId=${activeProfile.id}&theme=${currentThemeId ?? initialThemeId}`)
-      .then((response) => response.json())
-      .then((data: { snapshot?: ContinuitySnapshot | null }) => {
-        if (!cancelled) {
-          setContinuitySnapshot(data.snapshot ?? null);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setContinuitySnapshot(null);
-        }
-      });
+    const handleUserGesture = () => {
+      void primeAudioPlayback();
+    };
+
+    window.addEventListener("pointerdown", handleUserGesture, { passive: true });
+    window.addEventListener("keydown", handleUserGesture);
+    window.addEventListener("touchstart", handleUserGesture, { passive: true });
 
     return () => {
-      cancelled = true;
+      window.removeEventListener("pointerdown", handleUserGesture);
+      window.removeEventListener("keydown", handleUserGesture);
+      window.removeEventListener("touchstart", handleUserGesture);
     };
-  }, [activeProfile, currentThemeId, initialThemeId]);
+  }, [isClient]);
 
   // 新内容出现时自动滚动（延迟 100ms 等动画开始）
   useEffect(() => {
@@ -248,6 +285,7 @@ export function SessionPage({
     if (!isClient) return;
 
     let lastY = window.scrollY;
+    let lastTouchY: number | null = null;
     const isNearBottom = () => {
       const scrollBottom = window.scrollY + window.innerHeight;
       const docHeight = document.documentElement.scrollHeight;
@@ -270,9 +308,40 @@ export function SessionPage({
       lastY = currentY;
     };
 
+    const pauseAutoScrollForUpwardIntent = () => {
+      shouldAutoScrollRef.current = false;
+      setIsReviewingHistory(true);
+    };
+
+    const handleWheel = (event: WheelEvent) => {
+      if (event.deltaY < -2) {
+        pauseAutoScrollForUpwardIntent();
+      }
+    };
+
+    const handleTouchStart = (event: TouchEvent) => {
+      lastTouchY = event.touches[0]?.clientY ?? null;
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      const currentTouchY = event.touches[0]?.clientY ?? null;
+      if (lastTouchY !== null && currentTouchY !== null && currentTouchY > lastTouchY + 4) {
+        pauseAutoScrollForUpwardIntent();
+      }
+      lastTouchY = currentTouchY;
+    };
+
     window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("wheel", handleWheel, { passive: true });
+    window.addEventListener("touchstart", handleTouchStart, { passive: true });
+    window.addEventListener("touchmove", handleTouchMove, { passive: true });
     handleScroll();
-    return () => window.removeEventListener("scroll", handleScroll);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("wheel", handleWheel);
+      window.removeEventListener("touchstart", handleTouchStart);
+      window.removeEventListener("touchmove", handleTouchMove);
+    };
   }, [isClient]);
 
   function handleUserInput(input: string, type: InputType, meta?: InputMeta) {
@@ -287,7 +356,7 @@ export function SessionPage({
     const goals = initialGoal ? [initialGoal] : activeProfile.goalPreferences;
     startSession(activeProfile.id, goals, activeProfile, {
       themeId: initialThemeId ?? currentThemeId ?? undefined,
-      questionId: initialQuestionId ?? currentQuestionId ?? undefined,
+      questionId: currentQuestionId ?? initialQuestionId ?? undefined,
     });
   }
 
@@ -328,7 +397,7 @@ export function SessionPage({
     const completedTitle = completedQuestion?.title ?? "刚才那个小问题";
     const completionSummary = sessionSummary.summary?.trim()
       ? sessionSummary.summary.trim()
-      : `今天围绕“${completedTitle}”聊了一小段，脑脑记住了她愿意把想法说出来。`;
+      : `今天围绕“${completedTitle}”聊了一小段，${TEACHER_NAME}记住了她愿意把想法说出来。`;
 
     logCompletedSession({
       profileId: activeProfile?.id,
@@ -367,230 +436,198 @@ export function SessionPage({
   const activeQuestionId = currentQuestionId ?? initialQuestionId ?? undefined;
   const activeTheme = getDailyThemeDefinition(activeThemeId);
   const activeQuestion = getDailyQuestion(activeQuestionId);
+  const hasInlineInput = activeToolCalls.some((call) => INLINE_INPUT_TOOLS.has(call.name));
+  const hideBottomInput = isStreaming || hasInlineInput;
 
-  // 从 conversation 提取历史消息（排除最后一条 assistant，由 UniversalRenderer 渲染）
-  const historyMessages: Array<{ role: string; content?: string; toolCalls?: ToolCallResult[] }> = [];
-  if (conversation && conversation.length > 0) {
-    let lastAssistantIdx = -1;
-    for (let i = conversation.length - 1; i >= 0; i--) {
-      if (conversation[i].role === "assistant" || conversation[i].role === "tool") {
-        lastAssistantIdx = i;
-        break;
-      }
-    }
-    for (let i = 0; i < conversation.length; i++) {
-      const msg = conversation[i];
-      if (i >= lastAssistantIdx) continue;
-      if (msg.role === "user") {
-        historyMessages.push({ role: "user", content: msg.content });
-      } else if (msg.role === "assistant") {
-        historyMessages.push({ role: "assistant", toolCalls: msg.toolCalls as ToolCallResult[] | undefined });
-      }
-    }
-  }
+  const visibleHistoryMessages = showHistory ? historyMessages : historyMessages.slice(-3);
+  const hiddenHistoryCount = Math.max(0, historyMessages.length - visibleHistoryMessages.length);
+  const userTurnCount = conversation.filter((message) => message.role === "user").length;
+  const stageProgress = Math.min(3, Math.max(1, userTurnCount + (hasInlineInput ? 1 : 0)));
+  const latestUserLine = [...conversation]
+    .reverse()
+    .find((message) => message.role === "user" && message.content?.trim())?.content?.trim();
+  const stageTitle = activeQuestion?.title ?? activeTheme?.label ?? "今天的小聊天";
+  const stageLead = activeQuestion?.sceneSetup ?? activeTheme?.summary ?? `${TEACHER_NAME}正在准备今天的小问题。`;
+  const stageQuestion = activeQuestion?.mainQuestion ?? "先说一句你刚想到的想法。";
 
   return (
     <div
-      className="brainplay-page relative min-h-screen overflow-x-hidden"
-      style={{
-        backgroundImage: `linear-gradient(180deg, rgba(255, 253, 247, 0.84), rgba(255, 248, 236, 0.72)), url(${bgImage})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundAttachment: "fixed",
-      }}
+      className="brainplay-page bp-stage-page"
     >
-      {/* 顶部栏 */}
+      <div
+        className={`bp-stage-backdrop ${hasInlineInput ? "bp-stage-backdrop-focus" : ""}`}
+        style={{ backgroundImage: `url(${bgImage})` }}
+      />
+
       <motion.div
         initial={{ opacity: 0, y: -16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="sticky top-0 z-40 border-b border-white/70 bg-white/72 shadow-sm backdrop-blur-xl"
+        className="bp-stage-topbar"
       >
-        <div className="brainplay-shell flex items-center justify-between py-3">
+        <div className="flex items-center gap-3">
           <div className="bp-brand">
             <Image
-              src="/illustrations/character/robot-happy.png"
-              alt="脑脑"
+              src={TEACHER_AVATAR_SRC}
+              alt={TEACHER_NAME}
               width={40}
               height={40}
               className="bp-brand-mark p-1"
-              onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/illustrations/character/brainy-happy.png"; }}
             />
             <div>
-              <span className="text-sm font-black text-foreground">脑脑陪聊中</span>
-              <p className="hidden text-[11px] text-ink-soft sm:block">说一点点也可以，脑脑会接住</p>
+              <span className="text-sm font-black text-foreground">BrainPlay</span>
+              <p className="hidden text-[11px] text-ink-soft sm:block">{TEACHER_NAME}陪聊中</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            {activeProfile && (
-              <div className="hidden items-center gap-2 rounded-full border border-white/70 bg-white/70 px-3 py-2 shadow-sm sm:flex">
-                <Avatar
-                  src={userAvatarSrc}
-                  fallback={userNickname[0]}
-                  size={24}
-                  className="bp-avatar-ring"
-                />
-                <span className="text-xs font-bold text-foreground">{userNickname}</span>
-              </div>
-            )}
-            <Link href="/" className="bp-button-secondary px-3 py-2 text-xs">首页</Link>
-            <button
-              type="button"
-              onClick={() => {
-                reset();
-                useProfileStore.getState().setActiveProfile(null);
-                setForceCreateForm(true);
-              }}
-              className="rounded-full px-2 py-1 text-xs font-semibold text-ink-soft hover:text-accent"
-            >
-              重置
-            </button>
-          </div>
+        </div>
+
+        <div className="bp-stage-status">
+          {activeTheme && (
+            <span className={`bp-stage-theme-pill ${activeTheme.accentClass}`}>
+              {activeTheme.shortLabel}
+            </span>
+          )}
+          <span className="bp-stage-progress">{stageProgress} / 3 小选择</span>
+          {activeProfile && (
+            <span className="hidden items-center gap-2 rounded-full border border-white/70 bg-white/70 px-3 py-2 text-xs font-bold text-foreground shadow-sm sm:inline-flex">
+              <Avatar src={userAvatarSrc} fallback={userNickname[0]} size={22} className="bp-avatar-ring" />
+              {userNickname}
+            </span>
+          )}
+          <Link href="/" className="bp-button-secondary px-3 py-2 text-xs">首页</Link>
         </div>
       </motion.div>
 
-      {/* 桌面端：左侧机器人 */}
-      <div className="pointer-events-none fixed bottom-24 left-6 top-24 z-20 hidden w-60 flex-col justify-between lg:flex">
-        <div className="bp-panel rounded-[34px] p-4 text-center">
-          <p className="bp-kicker justify-center">Brainy</p>
-          <p className="mt-3 text-sm leading-6 text-ink-soft">脑脑在听，回答长短都可以。</p>
-        </div>
-        <div className="drop-shadow-2xl">
-          <RobotCharacter mood={mood} isSpeaking={isSpeaking} size="large" />
-        </div>
-      </div>
-
-      {/* 移动端：左下角小机器人 */}
-      <div className="pointer-events-none fixed bottom-24 left-2 z-20 lg:hidden">
-        <RobotCharacter mood={mood} isSpeaking={isSpeaking} size="small" />
-      </div>
-
-      {/* 主内容区 */}
-      <div className="relative z-10 lg:pl-72">
-        <div className="mx-auto max-w-3xl space-y-5 px-4 pb-36 pt-6">
-          {activeQuestion && activeTheme && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bp-scene-card rounded-[36px] px-5 py-5"
-            >
-              <p className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${activeTheme.accentClass}`}>
-                今天想聊 · {activeTheme.label}
-              </p>
-              <h1 className="mt-3 text-3xl font-black leading-tight tracking-tight text-foreground">{activeQuestion.title}</h1>
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
-                <p className="bp-muted-card px-4 py-3 text-sm leading-6 text-ink-soft">{buildBrainySceneSetup(activeQuestion)}</p>
-                <p className="bp-muted-card px-4 py-3 text-sm leading-6 text-ink-soft">{buildBrainySceneVoice(activeQuestion)}</p>
-                <p className="bp-muted-card px-4 py-3 text-sm leading-6 text-ink-soft">{buildBrainySceneReason(activeQuestion)}</p>
+      <main className="bp-stage-shell">
+        <section className={`bp-stage-world ${hasInlineInput ? "bp-stage-world-muted" : ""}`}>
+          <div className="bp-stage-world-card">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="bp-kicker">Today</p>
+                <h1 className="mt-3 text-3xl font-black leading-tight tracking-tight text-foreground sm:text-4xl">
+                  {stageTitle}
+                </h1>
+                <p className="mt-3 max-w-xl text-sm leading-7 text-ink-soft">{stageLead}</p>
               </div>
-              {continuitySnapshot && (
-                <p className="mt-3 rounded-[24px] border border-accent/12 bg-accent/8 px-4 py-3 text-sm leading-6 text-foreground">
-                  脑脑还记得：{continuitySnapshot.gentleOpen}
-                </p>
+              {activeTheme && (
+                <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-[24px] border border-white/70 bg-white/82 shadow-sm">
+                  <Image src={activeTheme.icon} alt="" fill className="object-contain p-3" />
+                </div>
               )}
-              <p className="mt-3 text-sm leading-6 text-ink-soft">这一轮不急着答对，先把你想到的告诉脑脑，它会顺着你的话继续聊。</p>
-            </motion.div>
+            </div>
+
+            <div className="bp-stage-clues" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+              <span />
+              <span />
+            </div>
+
+            <div className="bp-stage-question">
+              <p>{stageQuestion}</p>
+            </div>
+
+            {latestUserLine && (
+              <div className="bp-stage-trace">
+                <span>刚才你说</span>
+                <strong>{latestUserLine}</strong>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <div className="bp-stage-character">
+          <TeacherCharacter mood={mood} isSpeaking={isSpeaking} size="large" />
+          <div className="bp-stage-character-shadow" />
+        </div>
+
+        <section className={`bp-stage-live ${hasInlineInput ? "bp-stage-live-focus" : ""}`}>
+          <div className="bp-stage-live-header">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">Live</p>
+              <p className="mt-1 text-sm font-bold text-foreground">
+                {hasInlineInput ? "轮到你啦" : isStreaming ? `${TEACHER_NAME}正在想` : `${TEACHER_NAME}在这里接话`}
+              </p>
+            </div>
+            {(showHistory || hiddenHistoryCount > 0) && (
+              <button
+                type="button"
+                onClick={() => setShowHistory((value) => !value)}
+                className="rounded-full border border-white/70 bg-white/72 px-3 py-1.5 text-xs font-semibold text-ink-soft shadow-sm hover:text-accent"
+              >
+                {showHistory ? "收起回看" : `回看 ${historyMessages.length} 条`}
+              </button>
+            )}
+          </div>
+
+          {showHistory && historyMessages.length > 0 && (
+            <div className="bp-stage-history soft-scroller">
+              {visibleHistoryMessages.map((msg, idx) => (
+                <div key={`history-${idx}`} className="bp-stage-history-row">
+                  {msg.role === "user" ? (
+                    <ChatBubble
+                      variant="user"
+                      avatarSrc={userAvatarSrc}
+                      avatarFallback={userNickname[0]}
+                      animated={false}
+                    >
+                      {msg.content ?? ""}
+                    </ChatBubble>
+                  ) : (
+                    <HistoryAIBubble toolCalls={msg.toolCalls} dimmed />
+                  )}
+                </div>
+              ))}
+            </div>
           )}
 
-          <div className="bp-chat-frame space-y-4 rounded-[36px] p-3 sm:p-5">
-            {historyMessages.length > 0 && (
-              <div className="flex justify-center">
-                <button
-                  type="button"
-                  onClick={() => setShowHistory((value) => !value)}
-                  className="bp-button-secondary px-4 py-2 text-xs"
-                >
-                  {showHistory ? "收起刚才的小聊天" : "看看刚才聊到哪了"}
-                </button>
-              </div>
-            )}
-
-            {/* 历史对话气泡（默认折叠） */}
-            {showHistory && historyMessages.length > 0 && (
-              <motion.div
-                initial="hidden"
-                animate="visible"
-                variants={{
-                  hidden: {},
-                  visible: { transition: { staggerChildren: 0.06 } },
-                }}
-                className="space-y-4"
-              >
-                {historyMessages.map((msg, idx) => (
-                  <motion.div
-                    key={`history-${idx}`}
-                    variants={{
-                      hidden: { opacity: 0, y: 12 },
-                      visible: { opacity: 1, y: 0 },
-                    }}
-                  >
-                    {msg.role === "user" ? (
-                      <ChatBubble
-                        variant="user"
-                        avatarSrc={userAvatarSrc}
-                        avatarFallback={userNickname[0]}
-                        dimmed={!isReviewingHistory}
-                      >
-                        {msg.content ?? ""}
-                      </ChatBubble>
-                    ) : (
-                      <HistoryAIBubble
-                        toolCalls={msg.toolCalls}
-                        dimmed={!isReviewingHistory}
-                      />
-                    )}
-                  </motion.div>
-                ))}
-              </motion.div>
-            )}
-
+          <div className="bp-stage-renderer">
             <AnimatePresence mode="popLayout">
-              {activeToolCalls.length > 0 && (
-                <motion.div
-                  key="renderer"
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -16, transition: { duration: 0.2 } }}
-                  transition={{ duration: 0.4 }}
-                >
-                  <UniversalRenderer
-                    toolCalls={activeToolCalls}
-                    onUserInput={handleUserInput}
-                  />
-                </motion.div>
-              )}
-
-              {isStreaming && activeToolCalls.length === 0 && (
-                <ThinkingIndicator key="thinking" />
-              )}
-
-              {error && (
-                <motion.div
-                  key="error"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="rounded-[24px] border border-red-200 bg-red-50 px-4 py-3"
-                >
-                  <p className="text-sm text-red-600">出了点问题：{error}</p>
-                  <button
-                    type="button"
-                    onClick={() => activeProfile && startSession(activeProfile.id, activeProfile.goalPreferences, activeProfile, {
-                      themeId: initialThemeId ?? currentThemeId ?? undefined,
-                      questionId: initialQuestionId ?? currentQuestionId ?? undefined,
-                    })}
-                    className="mt-2 text-xs font-bold text-accent underline"
+                {activeToolCalls.length > 0 && (
+                  <motion.div
+                    key="renderer"
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -16, transition: { duration: 0.2 } }}
+                    transition={{ duration: 0.4 }}
                   >
-                    重试
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                    <UniversalRenderer
+                      toolCalls={activeToolCalls}
+                      onUserInput={handleUserInput}
+                    />
+                  </motion.div>
+                )}
 
-            {/* 自动滚动锚点 */}
+                {isStreaming && activeToolCalls.length === 0 && (
+                  <ThinkingIndicator key="thinking" />
+                )}
+
+                {error && (
+                  <motion.div
+                    key="error"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="rounded-[24px] border border-red-200 bg-red-50 px-4 py-3"
+                  >
+                    <p className="text-sm text-red-600">出了点问题：{error}</p>
+                    <button
+                      type="button"
+                      onClick={() => activeProfile && startSession(activeProfile.id, activeProfile.goalPreferences, activeProfile, {
+                        themeId: initialThemeId ?? currentThemeId ?? undefined,
+                        questionId: currentQuestionId ?? initialQuestionId ?? undefined,
+                      })}
+                      className="mt-2 text-xs font-bold text-accent underline"
+                    >
+                      重试
+                    </button>
+                  </motion.div>
+                )}
+            </AnimatePresence>
             <div ref={bottomRef} />
           </div>
-        </div>
-      </div>
+        </section>
+      </main>
 
       {/* 会话结束完成卡片 */}
       {sessionComplete && (
@@ -603,14 +640,13 @@ export function SessionPage({
           <div className="bp-panel w-full max-w-lg rounded-[40px] p-7 text-center sm:p-8">
             <p className="bp-chip mb-4 px-3 py-1.5">Session Saved</p>
             <Image
-              src="/illustrations/character/robot-happy.png"
-              alt="脑脑"
+              src={TEACHER_AVATAR_SRC}
+              alt={TEACHER_NAME}
               width={92}
               height={92}
               className="mx-auto mb-4 rounded-[26px] shadow-sm"
-              onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/illustrations/character/brainy-happy.png"; }}
             />
-            <h2 className="mb-2 text-3xl font-black leading-tight tracking-tight text-foreground">脑脑先把今天这段小聊天装进口袋里</h2>
+            <h2 className="mb-2 text-3xl font-black leading-tight tracking-tight text-foreground">{TEACHER_NAME}先把今天这段小聊天装进口袋里</h2>
             {sessionSummary?.summary && (
               <p className="mb-5 text-sm leading-6 text-ink-soft">{sessionSummary.summary}</p>
             )}
@@ -620,7 +656,7 @@ export function SessionPage({
                 <p className="mt-2 text-sm font-semibold text-foreground">{activeQuestion?.title ?? "刚才那个小问题"}</p>
               </div>
               <div className="bp-stat p-4">
-                <p className="text-xs font-semibold uppercase tracking-widest text-sky-700">脑脑记住了</p>
+                <p className="text-xs font-semibold uppercase tracking-widest text-sky-700">{TEACHER_NAME}记住了</p>
                 <p className="mt-2 text-sm text-foreground">{activeTheme ? `你今天愿意围着“${activeTheme.label}”多想半步。` : "你刚才愿意把自己的想法说出来。"}</p>
               </div>
             </div>
@@ -654,10 +690,21 @@ export function SessionPage({
         </motion.div>
       )}
 
+      {unlockNeeded && !sessionComplete && (
+        <button
+          type="button"
+          onClick={() => void unlockAndReplay()}
+          className="fixed bottom-36 right-4 z-50 rounded-full border border-accent/18 bg-accent px-4 py-3 text-sm font-black text-white shadow-lg transition hover:bg-accent-strong"
+        >
+          打开声音
+        </button>
+      )}
+
       {/* 底部输入栏（会话结束时隐藏） */}
       {!sessionComplete && (
         <InputBar
           pendingInputType={pendingInputType}
+          hidden={hideBottomInput}
           onSubmit={handleUserInput}
         />
       )}
@@ -703,7 +750,7 @@ function HistoryAIBubble({
         );
       })}
       {narrateTexts.length > 0 && (
-        <ChatBubble variant="ai" speakerName="脑脑" dimmed={dimmed}>
+        <ChatBubble variant="ai" speakerName={TEACHER_NAME} dimmed={dimmed}>
           {narrateTexts.join(" ")}
         </ChatBubble>
       )}

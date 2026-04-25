@@ -12,7 +12,7 @@ const PRESET_AVATARS = [
   { id: "cat", emoji: "🐱", label: "小猫" },
   { id: "dinosaur", emoji: "🦕", label: "恐龙" },
   { id: "panda", emoji: "🐼", label: "熊猫" },
-  { id: "robot", emoji: "🤖", label: "机器人" },
+  { id: "student", emoji: "🎒", label: "书包" },
   { id: "unicorn", emoji: "🦄", label: "独角兽" },
   { id: "bear", emoji: "🐻", label: "小熊" },
   { id: "fox", emoji: "🦊", label: "狐狸" },

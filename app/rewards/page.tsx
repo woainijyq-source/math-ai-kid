@@ -52,19 +52,11 @@ function pickLatestChildLine(conversation: Array<{ role: string; content?: strin
 
 export default function RewardsPage() {
   const activeProfile = useProfileStore((s) => s.getActiveProfile());
-  const {
-    activeToolCalls,
-    currentThemeId,
-    currentQuestionId,
-    sessionSummary,
-    conversation,
-  } = useAgentStore((state) => ({
-    activeToolCalls: state.activeToolCalls,
-    currentThemeId: state.currentThemeId,
-    currentQuestionId: state.currentQuestionId,
-    sessionSummary: state.sessionSummary,
-    conversation: state.conversation,
-  }));
+  const activeToolCalls = useAgentStore((state) => state.activeToolCalls);
+  const currentThemeId = useAgentStore((state) => state.currentThemeId);
+  const currentQuestionId = useAgentStore((state) => state.currentQuestionId);
+  const sessionSummary = useAgentStore((state) => state.sessionSummary);
+  const conversation = useAgentStore((state) => state.conversation);
 
   const [rewardSummary, setRewardSummary] = useState<RewardSummary | null>(null);
 
@@ -100,7 +92,7 @@ export default function RewardsPage() {
   const activeQuestion = getDailyQuestion(currentQuestionId ?? undefined);
   const latestChildLine = pickLatestChildLine(conversation);
   const highlightTitle = badges[0]?.title ?? "今天的小变化";
-  const highlightDetail = badges[0]?.detail ?? "脑脑把刚才那一点点变化记住了。";
+  const highlightDetail = badges[0]?.detail ?? "林老师把刚才那一点点变化记住了。";
   const persistedRewardSummary = activeProfile ? rewardSummary : null;
   const persistentDays = persistedRewardSummary?.recentDays ?? [];
 
@@ -123,7 +115,7 @@ export default function RewardsPage() {
           <section className="bp-panel grid gap-6 rounded-[44px] p-6 text-left md:grid-cols-[auto_1fr] md:items-center sm:p-8">
             <Image
               src="/illustrations/character/brainy-encouraging.png"
-              alt="脑脑鼓励"
+              alt="林老师鼓励"
               width={124}
               height={124}
               className="rounded-[30px] shadow-sm"
@@ -133,10 +125,10 @@ export default function RewardsPage() {
             <div>
               <p className="bp-chip px-3 py-1.5">Growth, Not Scores</p>
               <h2 className="bp-section-title mt-4 max-w-3xl">
-                {activeProfile ? `${activeProfile.nickname}，脑脑把最近这些小变化都收起来了` : "脑脑把最近这些小变化都收起来了"}
+                {activeProfile ? `${activeProfile.nickname}，林老师把最近这些小变化都收起来了` : "林老师把最近这些小变化都收起来了"}
               </h2>
               <p className="bp-copy mt-3 max-w-2xl">
-                变化不只在今天这一轮里。脑脑会把最近聊到的东西、你更愿意开的口、还有慢慢亮起来的小习惯，一点点记住。
+                变化不只在今天这一轮里。林老师会把最近聊到的东西、你更愿意开的口、还有慢慢亮起来的小习惯，一点点记住。
               </p>
               {persistedRewardSummary?.currentIdentity && (
                 <div className="mt-4 flex">
@@ -150,7 +142,7 @@ export default function RewardsPage() {
             <div className="bp-stat p-5">
               <p className="text-xs font-semibold uppercase tracking-widest text-emerald-700">今天聊到</p>
               <p className="mt-3 text-base font-semibold text-foreground">{activeQuestion?.title ?? persistentDays[0]?.questionTitle ?? "最近那个小问题"}</p>
-              <p className="mt-2 text-sm text-ink-soft">{activeTheme ? `脑脑今天是从“${activeTheme.label}”这个方向开口的。` : "脑脑最近一直在陪你慢慢聊。"}</p>
+              <p className="mt-2 text-sm text-ink-soft">{activeTheme ? `林老师今天是从“${activeTheme.label}”这个方向开口的。` : "林老师最近一直在陪你慢慢聊。"}</p>
             </div>
 
             <div className="bp-stat p-5">
@@ -158,12 +150,12 @@ export default function RewardsPage() {
               <p className="mt-3 text-sm leading-6 text-foreground">
                 {latestChildLine
                   ? `“${latestChildLine}”`
-                  : persistentDays[0]?.childThinking ?? "脑脑最近已经记住了你愿意把自己的想法说出来。"}
+                  : persistentDays[0]?.childThinking ?? "林老师最近已经记住了你愿意把自己的想法说出来。"}
               </p>
             </div>
 
             <div className="bp-stat p-5">
-              <p className="text-xs font-semibold uppercase tracking-widest text-violet-700">脑脑记住了</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-violet-700">林老师记住了</p>
               <p className="mt-3 text-base font-semibold text-foreground">{highlightTitle}</p>
               <p className="mt-2 text-sm text-ink-soft">{highlightDetail}</p>
             </div>
@@ -172,13 +164,13 @@ export default function RewardsPage() {
               <p className="text-xs font-semibold uppercase tracking-widest text-amber-700">最近的小习惯</p>
               <p className="mt-3 text-3xl font-bold text-foreground">{rewardSummary?.streakDays ?? 0}</p>
               <p className="mt-2 text-sm text-ink-soft">连续留下小变化的天数</p>
-              <p className="mt-2 text-xs text-ink-soft">最近 7 天里，有 {persistedRewardSummary?.activeDaysLast7 ?? 0} 天和脑脑聊过。</p>
+              <p className="mt-2 text-xs text-ink-soft">最近 7 天里，有 {persistedRewardSummary?.activeDaysLast7 ?? 0} 天和林老师聊过。</p>
             </div>
           </section>
 
           {sessionSummary?.summary && (
             <section className="bp-scene-card rounded-[32px] p-6">
-              <p className="bp-kicker">脑脑今天的小结</p>
+              <p className="bp-kicker">林老师今天的小结</p>
               <p className="mt-3 text-sm leading-7 text-foreground">{sessionSummary.summary}</p>
             </section>
           )}
@@ -237,7 +229,7 @@ export default function RewardsPage() {
 
           {persistedRewardSummary?.worldTraces?.length ? (
             <section className="bp-panel rounded-[34px] p-6">
-              <p className="bp-kicker">脑脑的小世界也变了一点</p>
+              <p className="bp-kicker">林老师的小世界也变了一点</p>
               <div className="mt-4 space-y-3">
                 {persistedRewardSummary.worldTraces.map((trace) => (
                   <div key={trace.id} className="rounded-[24px] border border-sky-200 bg-sky-50/82 p-4 shadow-sm">
@@ -251,7 +243,7 @@ export default function RewardsPage() {
 
           {persistedRewardSummary?.growthMap?.length ? (
             <ProgressMap
-              title="脑脑的成长地图"
+              title="林老师的成长地图"
               subtitle="不是一下子长大，而是最近几天一点点亮起来。"
               nodes={persistedRewardSummary.growthMap}
             />
@@ -292,7 +284,7 @@ export default function RewardsPage() {
                     />
                     <div>
                       <p className="font-semibold text-amber-800">{badge.title ?? "小变化"}</p>
-                      <p className="text-sm text-amber-700">{badge.detail ?? "脑脑把这一点点变化记住了。"}</p>
+                      <p className="text-sm text-amber-700">{badge.detail ?? "林老师把这一点点变化记住了。"}</p>
                     </div>
                   </motion.div>
                 ))}
