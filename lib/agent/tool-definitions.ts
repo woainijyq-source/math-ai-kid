@@ -44,7 +44,7 @@ export const FIRST_LAUNCH_TOOLS: ToolDefinition[] = [
     function: {
       name: "narrate",
       description:
-        "向孩子朗读一段叙述文本，可以是开场白、反馈或过渡语。【重要】每轮对话必须将此工具作为第一个调用，无论孩子用中文还是英文输入，都必须先调用 narrate 再调用其他工具。禁止在没有 narrate 的情况下直接调用展示类或输入类工具。",
+        "向孩子朗读一段叙述文本，可以是开场白、反馈、过渡语、阶段总结或儿童化科普讲解。【重要】每轮对话必须将此工具作为第一个调用，无论孩子用中文还是英文输入，都必须先调用 narrate 再调用其他工具。得到孩子一部分答案后，优先用 narrate 生成小结和讲解，不要立刻继续追问。禁止在没有 narrate 的情况下直接调用展示类或输入类工具。",
       parameters: {
         type: "object",
         properties: {
@@ -263,7 +263,7 @@ export const FIRST_LAUNCH_TOOLS: ToolDefinition[] = [
     function: {
       name: "end_activity",
       description:
-        "柔和收住当前小聊天。系统工具，在话题自然到尾声或孩子想停下时调用。",
+        "柔和收住当前小聊天。系统工具，在话题自然到尾声、已经完成一个阶段讲解，或孩子想停下时调用。使用前必须先用 narrate 做小结和儿童化讲解，不要再追加输入工具。",
       parameters: {
         type: "object",
         properties: {

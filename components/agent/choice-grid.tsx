@@ -2,7 +2,7 @@
 
 /**
  * ChoiceGrid
- * 打字机 prompt + stagger 选项入场动画，并逐张预热选项配图。
+ * 打字机 prompt + stagger 选项入场动画，并发预热选项配图。
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -16,7 +16,7 @@ import {
   requestGeneratedImage,
 } from "./generated-image-client";
 
-interface Choice {
+export interface Choice {
   id: string;
   label: string;
   desc?: string;
@@ -84,12 +84,33 @@ function buildChoiceImagePrompt(prompt: string, choice: Choice, sceneContext?: C
   ].filter(Boolean).join(" ");
 }
 
-function buildChoiceImageRequest(prompt: string, choice: Choice, sceneContext?: ChoiceSceneContext | null) {
+export function buildChoiceImageRequest(prompt: string, choice: Choice, sceneContext?: ChoiceSceneContext | null) {
   const alt = choice.imageAlt?.trim() || buildChoiceImageAlt(choice);
   const generatePrompt = buildChoiceImagePrompt(prompt, choice, sceneContext);
   const sceneKey = sceneContext?.sourceId ? `scene:${sceneContext.sourceId}` : "scene:none";
   const cacheKey = `choice:${buildGeneratedImageCacheKey(`${sceneKey}::${alt}`, generatePrompt)}`;
   return { alt, cacheKey, generatePrompt, referenceImageUrl: sceneContext?.referenceImageUrl };
+}
+
+export function preloadChoiceImages(
+  prompt: string,
+  choices: Choice[],
+  sceneContext?: ChoiceSceneContext | null,
+) {
+  const requests = choices
+    .filter((choice) => !choice.imageUrl)
+    .map((choice) => buildChoiceImageRequest(prompt, choice, sceneContext))
+    .filter((request) => !getCachedGeneratedImage(request.cacheKey));
+
+  requests.forEach((request) => {
+    void requestGeneratedImage(
+      request.cacheKey,
+      request.generatePrompt,
+      request.alt,
+      request.referenceImageUrl,
+      { acceptFallback: false },
+    ).catch(() => null);
+  });
 }
 
 export function ChoiceGrid({ prompt, choices, sceneContext, onSubmit }: ChoiceGridProps) {
@@ -146,38 +167,35 @@ export function ChoiceGrid({ prompt, choices, sceneContext, onSubmit }: ChoiceGr
       });
     }
 
-    if (pendingRequests.length > 0) {
-      void (async () => {
-        for (const request of pendingRequests) {
-          try {
-            const url = await requestGeneratedImage(
-              request.cacheKey,
-              request.generatePrompt,
-              request.alt,
-              request.referenceImageUrl,
-              { acceptFallback: false },
-            );
-            if (cancelled) return;
-            setGeneratedImages((current) => ({
-              ...current,
-              [request.slotKey]: url
-                ? { cacheKey: request.cacheKey, imageUrl: url, status: "ready" }
-                : { cacheKey: request.cacheKey, imageUrl: null, status: "failed" },
-            }));
-          } catch {
-            if (cancelled) return;
-            setGeneratedImages((current) => ({
-              ...current,
-              [request.slotKey]: {
-                cacheKey: request.cacheKey,
-                imageUrl: null,
-                status: "failed",
-              },
-            }));
-          }
-        }
-      })();
-    }
+    pendingRequests.forEach((request) => {
+      void requestGeneratedImage(
+        request.cacheKey,
+        request.generatePrompt,
+        request.alt,
+        request.referenceImageUrl,
+        { acceptFallback: false },
+      )
+        .then((url) => {
+          if (cancelled) return;
+          setGeneratedImages((current) => ({
+            ...current,
+            [request.slotKey]: url
+              ? { cacheKey: request.cacheKey, imageUrl: url, status: "ready" }
+              : { cacheKey: request.cacheKey, imageUrl: null, status: "failed" },
+          }));
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setGeneratedImages((current) => ({
+            ...current,
+            [request.slotKey]: {
+              cacheKey: request.cacheKey,
+              imageUrl: null,
+              status: "failed",
+            },
+          }));
+        });
+    });
 
     return () => {
       cancelled = true;

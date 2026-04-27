@@ -87,6 +87,7 @@ export function ChoiceCard({
             src={imageUrl}
             alt={label}
             className="bp-choice-image"
+            loading="eager"
           />
         ) : (
           <ChoiceMiniScene kind={visualKind} />

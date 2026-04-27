@@ -893,6 +893,10 @@ function appendInputToolIfNeeded(
     return calls;
   }
 
+  if (calls.some((call) => call.name === "end_activity")) {
+    return calls;
+  }
+
   const hasInteractiveTool = calls.some((call) =>
     [
       "show_choices",
@@ -908,6 +912,17 @@ function appendInputToolIfNeeded(
   );
 
   if (hasInteractiveTool) {
+    return calls;
+  }
+
+  const hasNarrate = calls.some((call) => call.name === "narrate");
+  const canPauseForTeachingWrap =
+    hasNarrate &&
+    context.turnIndex >= 2 &&
+    ((context.scoringMode ?? "experimental_unscored") !== "formal_scored" ||
+      trainingIntent?.teachingMove === "wrap_up");
+
+  if (canPauseForTeachingWrap) {
     return calls;
   }
 
@@ -934,6 +949,10 @@ const INTERACTIVE_TOOL_NAMES = new Set<ToolCall["name"]>([
   "show_drag_board",
 ]);
 
+const TEACHING_CADENCE_PROMPT_TOOLS = new Set<ToolCall["name"]>([
+  ...INTERACTIVE_TOOL_NAMES,
+]);
+
 function collapseInteractiveTools(calls: ToolCall[]): ToolCall[] {
   const interactiveIndexes = calls
     .map((call, index) => (INTERACTIVE_TOOL_NAMES.has(call.name) ? index : -1))
@@ -945,6 +964,100 @@ function collapseInteractiveTools(calls: ToolCall[]): ToolCall[] {
 
   const keepIndex = interactiveIndexes[interactiveIndexes.length - 1];
   return calls.filter((call, index) => !INTERACTIVE_TOOL_NAMES.has(call.name) || index === keepIndex);
+}
+
+function hasPromptingTool(calls?: ToolCall[]) {
+  return (calls ?? []).some((call) => TEACHING_CADENCE_PROMPT_TOOLS.has(call.name));
+}
+
+function getChildWrapKeyword(input: string) {
+  const trimmed = input
+    .trim()
+    .replace(/^我选[：:]\s*/, "")
+    .replace(/[。！？!?，,\s]+$/g, "");
+  const parts = trimmed
+    .split(/[，。！？!?、\s]+/)
+    .map((part) => part.trim())
+    .filter((part) => part.length >= 2);
+  return (parts[0] ?? trimmed).slice(0, 14) || "这个想法";
+}
+
+function looksLikeTeachingWrap(text: string) {
+  return /(小结|总结|收一下|科普|讲一下|讲清楚|小知识|小方法|发现|规律|规则|原因|意思是|可以先)/.test(text);
+}
+
+function looksLikeFactRepair(text: string) {
+  return /(不是|其实是|再看一眼|不过.*是|先温和纠正|按顺序看)/.test(text);
+}
+
+function buildTeachingWrapFallbackText(childInput: AgentTurnRequest, context: AgentLoopContext) {
+  const keyword = getChildWrapKeyword(childInput.input);
+  const subGoalId = context.currentSubGoalId ?? "";
+
+  if (/pattern|observation|inductive|analogy/.test(subGoalId)) {
+    return `林老师先把刚才的问题收一下：我们是在找线索。你提到“${keyword}”，这就是观察。小科普一下，找规律时可以先看重复的小块，再用它猜下一步。`;
+  }
+  if (/explain|why|reason/.test(subGoalId)) {
+    return `林老师先小结一下：我们在想“为什么”。你提到“${keyword}”，这是一个可能原因。小科普一下，好理由通常能说清楚“因为发生了什么，所以会怎样”。`;
+  }
+  if (/rule|risk|strategy|multi-step/.test(subGoalId)) {
+    return `林老师先把这个办法收一下：你提到“${keyword}”，已经在想步骤了。小科普一下，做决定时可以先定一条规则，再看这条规则会影响谁。`;
+  }
+
+  return `林老师先小结一下：你刚才提到“${keyword}”，这是一个有用线索。小科普一下，想问题时可以先抓住一个线索，再把它说成一句小规则。`;
+}
+
+function maybeEnforceTeachingCadence(
+  calls: ToolCall[],
+  childInput: AgentTurnRequest,
+  context: AgentLoopContext,
+): ToolCall[] {
+  if (context.turnIndex < 2) return calls;
+  if ((context.scoringMode ?? "experimental_unscored") === "formal_scored") return calls;
+  if (calls.some((call) => call.name === "end_activity")) return calls;
+  if (!hasPromptingTool(calls) || !hasPromptingTool(context.lastTurnToolCalls)) return calls;
+
+  const currentNarrateText = calls
+    .filter((call) => call.name === "narrate")
+    .map((call) => (typeof call.arguments.text === "string" ? call.arguments.text : ""))
+    .join(" ");
+  if (looksLikeFactRepair(currentNarrateText)) return calls;
+
+  const fallbackText = buildTeachingWrapFallbackText(childInput, context);
+  let hasNarrate = false;
+  const withoutPrompting = calls
+    .filter((call) => !TEACHING_CADENCE_PROMPT_TOOLS.has(call.name))
+    .map((call) => {
+      if (call.name !== "narrate") return call;
+      hasNarrate = true;
+      const text = typeof call.arguments.text === "string" ? call.arguments.text : "";
+      return {
+        ...call,
+        arguments: {
+          ...call.arguments,
+          text: looksLikeTeachingWrap(text) ? text : fallbackText,
+          speakerName: call.arguments.speakerName ?? AI_TEACHER_NAME,
+          voiceRole: call.arguments.voiceRole ?? "guide",
+          autoSpeak: call.arguments.autoSpeak ?? true,
+        },
+      };
+    });
+
+  if (hasNarrate) return withoutPrompting;
+
+  return [
+    {
+      id: `teaching-wrap-${context.turnIndex}-${Date.now()}`,
+      name: "narrate",
+      arguments: {
+        text: fallbackText,
+        speakerName: AI_TEACHER_NAME,
+        voiceRole: "guide",
+        autoSpeak: true,
+      },
+    },
+    ...withoutPrompting,
+  ];
 }
 
 function buildForceAbandonToolCalls(
@@ -1260,6 +1373,7 @@ export async function* runAgentTurn(
   );
   orchestrated = collapseInteractiveTools(orchestrated);
   orchestrated = repairPatternFactResponse(orchestrated, childInput, conversation, lastTurnToolCalls);
+  orchestrated = maybeEnforceTeachingCadence(orchestrated, childInput, context);
 
   if (orchestrated.length === 0) {
     orchestrated = buildFallbackToolCalls();

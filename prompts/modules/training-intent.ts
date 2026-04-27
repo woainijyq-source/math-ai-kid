@@ -103,7 +103,7 @@ export function trainingIntentModule(
 - Keep the question narrow and collect one more clean piece of evidence before celebrating mastery.`;
       case "wrap_or_transfer":
         return `### Current Wrap Rule
-- Use a concise wrap-up or transfer check.
+- Use a concise wrap-up first: summarize the child's answer, name the small idea behind it in child-friendly words, then only do a light transfer check if needed.
 - Confirm the child can apply the same idea in a lightly changed situation.`;
       case "gentle_redirect_ready":
         return `### Current Redirect Rule
@@ -148,6 +148,7 @@ ${ageRuleLines ? `### Age-Sensitive Delivery\n${ageRuleLines}\n` : ""}${mistakeL
 - Only use these teaching moves: ${intent.allowedTeachingMoves.join(", ")}
 - Do not switch to a new sub-goal on your own.
 - Do not advance mastery on answer-only evidence.
+- Do not chase evidence forever. After the child gives a partial answer plus any reason, generate a short explanation before asking again.
 - Match the delivery tone to the age band instead of using one fixed child voice for everyone.
 
 ### Next Step Rules

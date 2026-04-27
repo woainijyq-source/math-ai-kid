@@ -89,6 +89,23 @@ function buildClosingBadge(question: DailyQuestion) {
   }
 }
 
+function buildTeachingWrapText(question: DailyQuestion, childInput: string) {
+  const mirrorPhrase = extractChildMirrorPhrase(childInput);
+  switch (question.themeId) {
+    case "math":
+      return `林老师先把刚才的问题收一下：我们在想怎样比较数量或办法。你提到“${mirrorPhrase}”，这就是在找一个分配规则。小科普一下，数学里先定规则，再按规则一步步做，大家就更容易觉得公平。`;
+    case "pattern":
+      return `林老师先小结一下：我们在找哪里重复、哪里变化。你刚才说到“${mirrorPhrase}”，已经是在抓线索了。小科普一下，找规律时可以先圈出最小的重复块，再用它猜下一格。`;
+    case "why":
+      return `林老师先把这个为什么收一下：你给了一个可能原因“${mirrorPhrase}”。小科普一下，猜原因时可以先说“可能因为……”，再想一个能不能验证的小线索。`;
+    case "fairness":
+      return `林老师先小结：我们在想怎样才更公平。你提到“${mirrorPhrase}”，说明你已经在考虑别人的感受。小科普一下，公平常常不是每个人都一样多，而是先说清楚用哪条规则。`;
+    case "what-if":
+    default:
+      return `林老师先把这个如果收一下：你想到“${mirrorPhrase}”会发生变化。小科普一下，想如果题时可以按顺序看：第一件变化、影响到谁、要不要改规则。`;
+  }
+}
+
 function buildDynamicFollowUp(question: DailyQuestion, request: AgentTurnRequest, turnIndex: number) {
   const signal = classifyDailyChildSignal(question, request.input, turnIndex);
   const mathTurnAdaptation = inferLiveMathTurnAdaptation({
@@ -192,10 +209,9 @@ export function buildDailyQuestionMockTurn(
   request: AgentTurnRequest,
   turnIndex: number,
 ): AgentStreamEvent[] {
-  if (turnIndex >= 3) {
-    const closing = buildDynamicFollowUp(question, request, turnIndex);
+  if (turnIndex >= 2) {
     const narrate = mockToolCall("narrate", {
-      text: closing.narrate,
+      text: buildTeachingWrapText(question, request.input),
       speakerName: AI_TEACHER_NAME,
       voiceRole: "guide",
       autoSpeak: true,

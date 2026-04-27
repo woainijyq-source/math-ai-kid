@@ -11,7 +11,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import type { ToolCallResult, InputType, InputMeta } from "@/types/agent";
 import { FallbackSlot } from "./tool-slot";
 import { AgentNarrator } from "./agent-narrator";
-import { ChoiceGrid, type ChoiceSceneContext } from "./choice-grid";
+import {
+  ChoiceGrid,
+  preloadChoiceImages,
+  type Choice,
+  type ChoiceSceneContext,
+} from "./choice-grid";
 import { ImageSlot } from "./image-slot";
 import { VoiceInputSlot } from "./voice-input-slot";
 import { TextInputSlot } from "@/components/game/text-input-slot";
@@ -53,6 +58,8 @@ const INTERACTIVE_TOOLS = new Set([
   "show_number_input", "request_photo", "show_emotion_checkin",
   "request_camera", "show_drawing_canvas", "show_drag_board",
 ]);
+
+const EMPTY_CHOICES: Choice[] = [];
 
 function isInteractive(name: string) {
   return INTERACTIVE_TOOLS.has(name);
@@ -359,6 +366,7 @@ export function UniversalRenderer({
   );
   const [completedDisplayIds, setCompletedDisplayIds] = useState<Set<string>>(() => new Set());
   const [resolvedImageUrls, setResolvedImageUrls] = useState<Record<string, string>>({});
+  const preloadedChoiceSignatureRef = useRef<string | null>(null);
 
   const interactives = toolCalls.filter((tc) => isInteractive(tc.name));
   const latestInteractive = interactives[interactives.length - 1];
@@ -388,10 +396,41 @@ export function UniversalRenderer({
         : sceneContextFallback ?? null;
     }
   }
+  const latestChoiceSceneSourceId = latestInteractiveSceneContext?.sourceId;
+  const latestChoiceSceneAlt = latestInteractiveSceneContext?.alt;
+  const latestChoiceSceneGeneratePrompt = latestInteractiveSceneContext?.generatePrompt;
+  const latestChoiceSceneReferenceImageUrl = latestInteractiveSceneContext?.referenceImageUrl;
   const latestInteractivePrompt =
     typeof (latestInteractive?.arguments as Record<string, unknown> | undefined)?.prompt === "string"
       ? String((latestInteractive?.arguments as Record<string, unknown>).prompt)
       : "";
+  const latestChoiceArgs = latestInteractive?.name === "show_choices"
+    ? (latestInteractive.arguments as Record<string, unknown>)
+    : null;
+  const latestChoiceItems = Array.isArray(latestChoiceArgs?.choices)
+    ? (latestChoiceArgs.choices as Choice[])
+    : EMPTY_CHOICES;
+  const latestChoicePreloadSignature = latestChoiceArgs
+    ? [
+        latestInteractive?.id,
+        latestInteractivePrompt,
+        latestChoiceItems
+          .map((choice, index) => [
+            index,
+            choice.id,
+            choice.label,
+            choice.desc ?? "",
+            choice.imageUrl ?? "",
+            choice.imageAlt ?? "",
+            choice.generatePrompt ?? "",
+          ].join("~"))
+          .join("|"),
+        latestChoiceSceneSourceId ?? "",
+        latestChoiceSceneAlt ?? "",
+        latestChoiceSceneGeneratePrompt ?? "",
+        latestChoiceSceneReferenceImageUrl ? "ref" : "",
+      ].join("::")
+    : "";
   const shouldSpeakNarration = !latestInteractivePrompt;
   const visibleDisplayCount = useMemo(() => {
     if (displayCalls.length === 0) return 0;
@@ -436,6 +475,36 @@ export function UniversalRenderer({
       speakerName: TEACHER_NAME,
     });
   }, [latestInteractivePrompt]);
+
+  useEffect(() => {
+    if (!latestChoiceArgs || latestChoiceItems.length === 0) return;
+    if (preloadedChoiceSignatureRef.current === latestChoicePreloadSignature) return;
+    preloadedChoiceSignatureRef.current = latestChoicePreloadSignature;
+
+    const sceneContext = latestChoiceSceneSourceId || latestChoiceSceneAlt || latestChoiceSceneGeneratePrompt || latestChoiceSceneReferenceImageUrl
+      ? {
+          sourceId: latestChoiceSceneSourceId,
+          alt: latestChoiceSceneAlt,
+          generatePrompt: latestChoiceSceneGeneratePrompt,
+          referenceImageUrl: latestChoiceSceneReferenceImageUrl,
+        }
+      : null;
+
+    preloadChoiceImages(
+      latestInteractivePrompt,
+      latestChoiceItems,
+      sceneContext,
+    );
+  }, [
+    latestChoiceArgs,
+    latestChoiceItems,
+    latestChoicePreloadSignature,
+    latestInteractivePrompt,
+    latestChoiceSceneSourceId,
+    latestChoiceSceneAlt,
+    latestChoiceSceneGeneratePrompt,
+    latestChoiceSceneReferenceImageUrl,
+  ]);
 
   return (
     <motion.div layout className="bp-stage-tool-stack">
