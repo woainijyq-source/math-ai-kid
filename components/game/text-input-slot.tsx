@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { InputModeToggle, type InputMode } from "@/components/agent/input-mode-toggle";
-import { VoiceRecorderControl } from "@/components/agent/voice-recorder-control";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 import type { InputType } from "@/types/agent";
+
+type InputMode = "text" | "voice";
 
 interface TextInputSlotProps {
   prompt: string;
@@ -18,16 +18,16 @@ export function TextInputSlot({
   prompt,
   placeholder = "在这里输入...",
   submitLabel = "提交",
-  initialMode = "text",
+  initialMode = "voice",
   onSubmit,
 }: TextInputSlotProps) {
   const [value, setValue] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
-  const [mode, setMode] = useState<InputMode>(initialMode);
+  const [textOpen, setTextOpen] = useState(initialMode === "text");
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const { voiceState, startRecording, stopRecording } = useVoiceRecorder(
+  const { voiceState, liveTranscript, startRecording, stopRecording } = useVoiceRecorder(
     (transcript) => {
       if (!submitted) {
         setVoiceError(null);
@@ -37,14 +37,15 @@ export function TextInputSlot({
     },
     () => {
       setVoiceError("语音识别暂时不可用，请直接输入。");
+      setTextOpen(true);
     },
   );
 
   useEffect(() => {
-    if (mode === "text" && !submitted) {
+    if (textOpen && !submitted) {
       inputRef.current?.focus();
     }
-  }, [mode, submitted]);
+  }, [textOpen, submitted]);
 
   function handleSubmit() {
     const trimmed = value.trim();
@@ -57,15 +58,8 @@ export function TextInputSlot({
 
   function beginVoiceRecording() {
     setVoiceError(null);
-    setMode("voice");
+    setTextOpen(false);
     void startRecording();
-  }
-
-  function handleModeChange(nextMode: InputMode) {
-    setMode(nextMode);
-    if (nextMode === "voice" && voiceState === "idle" && !submitted) {
-      beginVoiceRecording();
-    }
   }
 
   function handleVoiceToggle() {
@@ -78,32 +72,75 @@ export function TextInputSlot({
 
   const isRecording = voiceState === "recording";
   const isProcessing = voiceState === "processing";
-  const modeSwitchDisabled = submitted || isRecording || isProcessing;
-  const textDisabled = submitted || isRecording || isProcessing || mode === "voice";
+  const textDisabled = submitted || isRecording || isProcessing;
   const micDisabled = submitted || isProcessing;
+  const textToggleDisabled = submitted || isRecording || isProcessing;
+  const voiceTitle = isRecording ? "正在录音" : isProcessing ? "正在识别" : "语音回答";
+  const voiceHint = isRecording
+    ? "再点一下结束录音"
+    : isProcessing
+      ? "正在把刚才的话变成文字"
+      : "点一下话筒开始说";
 
   return (
-    <div className="space-y-3">
+    <div className="bp-voice-first space-y-4">
       {prompt && (
-        <p className="text-sm font-semibold leading-6 text-foreground">{prompt}</p>
+        <p className="text-lg font-black leading-7 text-foreground md:text-xl">{prompt}</p>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">可以打字，也可以直接说</p>
-        <InputModeToggle mode={mode} onChange={handleModeChange} disabled={modeSwitchDisabled} />
-      </div>
-      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_240px]">
-        <div
-          className={`rounded-[28px] border p-3 shadow-sm transition ${
-            mode === "text"
-              ? "border-accent/20 bg-white/92"
-              : "border-white/70 bg-white/68"
-          }`}
+
+      <div className="bp-voice-first-shell">
+        <button
+          type="button"
+          onClick={handleVoiceToggle}
+          disabled={micDisabled}
+          className={`bp-voice-primary-button ${
+            isRecording ? "bp-voice-primary-button-recording" : ""
+          } ${isProcessing ? "bp-voice-primary-button-processing" : ""}`}
+          aria-label={voiceTitle}
         >
+          <span aria-hidden="true">
+            {isProcessing ? "…" : isRecording ? "■" : "🎤"}
+          </span>
+        </button>
+
+        <div className="bp-voice-first-copy">
+          <p className="bp-voice-first-title">{voiceTitle}</p>
+          <p className="bp-voice-first-hint">{voiceHint}</p>
+          <div
+            className={`bp-voice-mini-bars ${isRecording || isProcessing ? "bp-voice-mini-bars-active" : ""}`}
+            aria-hidden="true"
+          >
+            <span />
+            <span />
+            <span />
+            <span />
+            <span />
+          </div>
+        </div>
+      </div>
+
+      {(isRecording || isProcessing || liveTranscript) && (
+        <div className="bp-live-transcript" aria-live="polite">
+          <span>{liveTranscript || "正在听你说..."}</span>
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setTextOpen((current) => !current)}
+        disabled={textToggleDisabled}
+        className={`bp-text-secondary-button ${textOpen ? "bp-text-secondary-button-active" : ""}`}
+      >
+        <span className="bp-text-secondary-icon" aria-hidden="true">⌨</span>
+        <span>{textOpen ? "收起文字输入" : "文字输入"}</span>
+      </button>
+
+      {textOpen && (
+        <div className="bp-text-drawer">
           <textarea
             ref={inputRef}
             value={value}
             onChange={(e) => {
-              setMode("text");
               setValue(e.target.value);
               if (voiceError) setVoiceError(null);
             }}
@@ -119,9 +156,7 @@ export function TextInputSlot({
             className="bp-field min-h-28 w-full resize-none px-4 py-3 text-sm leading-6 disabled:opacity-50"
           />
           <div className="mt-3 flex items-center justify-between gap-3">
-            <p className="text-xs text-ink-soft">
-              {mode === "text" ? "写一句就可以，林老师会顺着接。" : "切回“打字”就能发文字。"}
-            </p>
+            <p className="text-xs text-ink-soft">写一句就可以，林老师会顺着接。</p>
             <button
               type="button"
               onClick={handleSubmit}
@@ -132,22 +167,7 @@ export function TextInputSlot({
             </button>
           </div>
         </div>
-
-        <div
-          className={`rounded-[28px] border p-4 shadow-sm transition ${
-            mode === "voice"
-              ? "border-accent/20 bg-accent/6"
-              : "border-white/70 bg-white/72"
-          }`}
-        >
-          <VoiceRecorderControl
-            voiceState={voiceState}
-            onToggle={handleVoiceToggle}
-            disabled={micDisabled}
-            label={isRecording ? "正在用语音回答" : isProcessing ? "正在识别语音" : "语音回答"}
-          />
-        </div>
-      </div>
+      )}
 
       {voiceError && (
         <p className="text-xs text-amber-700">{voiceError}</p>

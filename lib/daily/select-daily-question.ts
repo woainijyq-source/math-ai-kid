@@ -1,11 +1,19 @@
 import { buildBrainyVoiceGuideText } from "@/content/daily/brainy-voice-guide";
 import { DAILY_QUESTION_BANK } from "@/content/daily/daily-question-bank";
+import {
+  applyScenarioTemplateVariablesToText,
+  buildScenarioQuestionVariant,
+  getScenarioTemplateForQuestion,
+} from "@/content/daily/scenario-templates";
 import { getDailyThemeDefinition } from "@/content/daily/theme-definitions";
 import { getThemeLevelDefinition } from "@/content/daily/theme-level-definitions";
 import { getDailyThemePlaybook } from "@/content/daily/theme-playbooks";
+import { getThinkingMoveLabel } from "@/content/daily/thinking-evidence-rubric";
 import { buildBrainySceneReason, buildBrainySceneSetup, buildBrainySceneVoice } from "@/lib/daily/brainy-voice";
+import { buildThinkingGrowthPromptLines } from "@/content/daily/thinking-growth-paths";
 import type { ContinuitySnapshot } from "@/lib/data/session-log";
 import { inferLiveMathTurnAdaptation } from "@/lib/daily/math-adaptation";
+import { getThemeQuestionLevel } from "@/lib/daily/theme-adaptation";
 import { buildDailyChoiceScaffold } from "@/lib/daily/choice-scaffold";
 import { buildDailyHumanLikeHints } from "@/lib/daily/child-language";
 import { classifyDailyChildSignal } from "@/lib/daily/child-signal";
@@ -43,7 +51,7 @@ export function selectDailyQuestion(options: {
 }) {
   const requested = getDailyQuestion(options.questionId);
   if (requested) {
-    return requested;
+    return buildScenarioQuestionVariant(requested, options.rotationSeed);
   }
 
   const resolvedTheme = options.themeId ?? getDefaultDailyThemeId();
@@ -56,23 +64,68 @@ export function selectDailyQuestion(options: {
     ? options.rotationSeed
     : hashSeed(String(options.rotationSeed ?? new Date().toISOString().slice(0, 10)));
 
-  return pool[Math.abs(seed) % pool.length];
+  const selected = pool[Math.abs(seed) % pool.length];
+  return selected
+    ? buildScenarioQuestionVariant(selected, options.rotationSeed ?? seed)
+    : undefined;
 }
 
 function buildInputHint(question: DailyQuestion, shouldOfferChoices: boolean) {
   if (shouldOfferChoices) {
-    return "孩子这轮偏犹豫，优先用 show_choices 给两个容易开口的方向，再顺着她的选择追问。";
+    return "孩子这轮偏犹豫，优先用 show_choices 给 3 个容易开口的方向，再顺着她的选择追问。";
   }
 
   switch (question.suggestedInput) {
     case "choice":
-      return "优先用 show_choices 给 2-3 个童趣选项，再根据孩子选择追一句更细的问题。";
+      return "优先用 show_choices 给 3 个童趣选项，再根据孩子选择追一句更细的问题。";
     case "text":
       return "优先用 show_text_input，输入框提示要短，像是在请孩子补一句。";
     case "voice":
     default:
       return "优先用 request_voice 或 show_choices，让孩子先自然开口，再顺着她的话继续聊。";
   }
+}
+
+function buildScenarioTemplatePromptLines(question: DailyQuestion, turnIndex: number) {
+  const template = getScenarioTemplateForQuestion(question);
+  if (!template) return [];
+  const render = (value: string) =>
+    applyScenarioTemplateVariablesToText(value, template, question.scenarioVariables);
+  const renderList = (values: string[]) => values.map(render);
+  const selectedVariables = question.scenarioVariables
+    ? Object.entries(question.scenarioVariables).map(([key, value]) => `${key}=${value}`).join("；")
+    : "";
+  const scaffoldOptions = renderList(template.scaffoldOptions);
+  const conditionChanges = renderList(template.conditionChanges);
+  const evidenceTargets = renderList(template.evidenceTargets);
+  const currentStep = turnIndex <= 0
+    ? `本轮只做开场：围绕“${render(template.openingQuestion)}”让孩子先给一个想法。`
+    : turnIndex === 1
+      ? `本轮只追证据：接孩子上一句，用“${scaffoldOptions[0] ?? "你为什么这样想？"}”或证据目标来听理由，不换新题。`
+      : turnIndex === 2
+        ? `本轮只做条件变化：用“${conditionChanges[0] ?? "如果情况变了，你会怎么改？"}”检查孩子会不会调整想法。`
+        : `本轮准备收束：用“${render(template.wrapUpQuestion)}”请孩子总结规则、办法或修正；如果已经说清楚，可以 end_activity。`;
+
+  return [
+    "ScenarioTemplate 控制：",
+    `模板ID：${template.id}`,
+    ...(question.scenarioVariantKey ? [`变量变体：${question.scenarioVariantKey}`] : []),
+    `场景类型：${template.scenarioType}`,
+    `层级范围：L${template.levelRange[0]}-L${template.levelRange[1]}`,
+    `目标 Thinking Moves：${template.targetThinkingMoves.map(getThinkingMoveLabel).join(" / ")}`,
+    `允许替换变量：${template.variables.map((item) => `${item.label}=${item.examples.join("|")}`).join("；")}`,
+    ...(selectedVariables ? [`本轮变量取值：${selectedVariables}`] : []),
+    `图片 prompt：${render(template.imagePrompt)}`,
+    `开场问题：${render(template.openingQuestion)}`,
+    `支架选项：${scaffoldOptions.join(" / ")}`,
+    `条件变化：${conditionChanges.join(" / ")}`,
+    `证据目标：${evidenceTargets.join(" / ")}`,
+    `收尾问题：${render(template.wrapUpQuestion)}`,
+    `本题引导结论：孩子能围绕“${evidenceTargets.join(" / ")}”说出自己的理由、调整或小规则；不是换题，也不是追标准答案。`,
+    `当前推进步骤：${currentStep}`,
+    "连续性硬规则：一轮只推进路线中的一步；不要开新场景、不要突然换目标、不要把开场问题/支架/条件变化混在同一句里。",
+    "动态生成边界：不要自由换成无关题；只能基于模板填变量、换相近生活场景、生成图片描述或轻微改写问题。",
+  ];
 }
 
 export function buildDailyQuestionActivity(
@@ -85,6 +138,7 @@ export function buildDailyQuestionActivity(
 ) {
   const theme = getDailyThemeDefinition(question.themeId);
   const themeLevel = getThemeLevelDefinition(question.themeId, question.adaptationLevel ?? 1);
+  const growthLevel = getThemeQuestionLevel(question);
   const playbook = getDailyThemePlaybook(question.themeId);
   const fallbackGoalMapping = getThemeGoalMapping(question.themeId, {
     progressionStageId: question.progressionStageId,
@@ -142,6 +196,8 @@ export function buildDailyQuestionActivity(
     buildBrainyVoiceGuideText(),
     "框架：MLIF（微跃迁启思框架）。",
     "MLIF 核心：先接住，先具体，只推半步，问题先于答案，支架要轻，收尾要迁移。",
+    ...buildThinkingGrowthPromptLines(question.themeId, growthLevel),
+    ...buildScenarioTemplatePromptLines(question, turnIndex),
     `今日主题：${theme?.label ?? question.themeId}`,
     `主题简介：${theme?.summary ?? "和孩子一起想一想。"}`,
     ...(themeLevel
@@ -165,13 +221,16 @@ export function buildDailyQuestionActivity(
     "- 你不是老师，不要长篇解释概念或做知识点总结。",
     "- 你可以改写、缩短、重组问题。",
     "- 你必须顺着孩子刚才的话来接，而不是机械进入固定下一问。",
-    "- 你的目标不是把三个固定问题问完，而是让孩子觉得你真的在听。",
+    "- 你的目标不是把三个固定问题问完，而是沿着“开场想法 -> 理由证据 -> 条件变化 -> 孩子总结”的路线往前走。",
     "- 每轮最多只抛一个新问题。",
+    "- 每个问题必须让家长看得出你在收集哪一种证据：观察、理由、比较、预测、迁移或总结。",
     "- 引用孩子刚才说的关键词，再往前推半步。",
     "- 优先引用孩子的一小段想法，不要机械整句复读。",
     "- 复述后立刻接一个最自然的问题，不要堆两三个追问。",
     "- 语言要像在陪孩子聊，不要像在发题、讲题或批改。",
     "- 不要跳成新的题目、工作纸或小游戏。",
+    "- 禁止空泛接话：不要写“林老师在这里陪你”“好，我们先轻轻接住这一小步”“你现在想说什么”这类没有题意的话。",
+    "- 如果刚调用 show_image，下一步输入工具的 prompt 必须直接问图里的任务，不能只让孩子随便说。",
     `主题目标：${playbook.childFacingGoal}`,
     `主题常用场景：${playbook.sceneLenses.join(" / ")}`,
     `主题锚点：${playbook.anchorMoves.join(" / ")}`,
@@ -196,11 +255,11 @@ export function buildDailyQuestionActivity(
       : []),
     ...(choiceScaffold
       ? [
-          `如果你要用 show_choices，优先像这样给两个思路：${choiceScaffold.prompt}`,
+          `如果你要用 show_choices，优先像这样给具体思路：${choiceScaffold.prompt}`,
           ...choiceScaffold.choices.map((choice) =>
             `- ${choice.label}: ${choice.desc}${choice.badge ? `（${choice.badge}）` : ""}`,
           ),
-          "不要给通用按钮，比如“继续”“再说一个”“给我提示”。要给真正能帮助孩子往前想的两个方向。",
+          "不要给通用按钮，比如“继续”“再说一个”“给我提示”。要给真正能帮助孩子往前想的具体方向；视觉选项默认给 3 个。",
         ]
       : []),
     effectiveMove === "wrap_up"

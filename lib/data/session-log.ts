@@ -1,4 +1,4 @@
-import { db } from "@/lib/data/db";
+import { db, insertThinkingEvidenceRows } from "@/lib/data/db";
 import { DAILY_THEME_DEFINITIONS } from "@/content/daily/theme-definitions";
 import { getThemeLevelDefinition } from "@/content/daily/theme-level-definitions";
 import { mathProgressionStages } from "@/content/math-progression";
@@ -169,7 +169,7 @@ export function insertSessionLog(payload: CompletedSessionPayload) {
     )
   `);
 
-  statement.run({
+  const result = statement.run({
     profileId: payload.profileId ?? null,
     mode: payload.mode,
     taskId: payload.taskId,
@@ -182,6 +182,28 @@ export function insertSessionLog(payload: CompletedSessionPayload) {
       ? JSON.stringify(payload.mathEvidence)
       : null,
   });
+
+  const sessionLogId = Number(result.lastInsertRowid);
+  const thinkingEvidence = payload.mathEvidence?.thinkingEvidence ?? [];
+  if (thinkingEvidence.length > 0) {
+    insertThinkingEvidenceRows(thinkingEvidence.map((evidence) => ({
+      profile_id: payload.profileId ?? null,
+      session_log_id: sessionLogId,
+      task_id: payload.taskId,
+      theme_id: evidence.themeId,
+      scenario_id: evidence.scenarioId ?? payload.sceneId ?? null,
+      scenario_title: evidence.scenarioTitle ?? payload.title,
+      thinking_move: evidence.thinkingMove,
+      level: evidence.level,
+      child_initiated: evidence.childInitiated ? 1 : 0,
+      support_level: evidence.supportLevel,
+      confidence: evidence.confidence,
+      child_utterance: evidence.childUtterance,
+      ai_prompt: evidence.aiPrompt ?? null,
+    })));
+  }
+
+  return sessionLogId;
 }
 
 function mapSessionLogRow(row: SessionLogRow): SessionLogItem {
@@ -224,9 +246,7 @@ export function listRecentSessionLogs(limit = 5, profileId?: string): SessionLog
         LIMIT ?
       `).all(profileId, limit) as SessionLogRow[];
 
-      if (profileRows.length > 0) {
-        return profileRows.map(mapSessionLogRow);
-      }
+      return profileRows.map(mapSessionLogRow);
     }
 
     const statement = db.prepare(`
@@ -266,9 +286,7 @@ export function hasSessionLogs(profileId?: string) {
         WHERE profile_id = ?
       `).get(profileId) as { count: number };
 
-      if (profileRow.count > 0) {
-        return true;
-      }
+      return profileRow.count > 0;
     }
 
     const statement = db.prepare(`

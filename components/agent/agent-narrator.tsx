@@ -42,26 +42,35 @@ export function AgentNarrator({
       initial={{ opacity: 0, y: 12, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      className="flex items-start gap-3"
+      className="bp-teacher-line"
     >
       <Avatar
         src={avatarSrc ?? TEACHER_AVATAR_SRC}
         fallback="师"
-        size={36}
-        className="bp-avatar-ring mt-1"
+        size={86}
+        className="bp-teacher-avatar"
       />
-      <div className="bp-chat-bubble bp-chat-bubble-ai max-w-[min(85%,44rem)] px-4 py-3">
-        {speakerName && (
-          <p className={`mb-1 text-[11px] font-semibold uppercase tracking-widest ${roleColors[voiceRole] ?? "text-accent"}`}>
-            {speakerName}
+      <div className="bp-teacher-bubble">
+        <div className="bp-teacher-bubble-head">
+          <p className={`bp-teacher-name ${roleColors[voiceRole] ?? "text-accent"}`}>
+            {speakerName ?? "林老师"}
           </p>
-        )}
+          <span className="bp-teacher-wave" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+            <span />
+            <span />
+            <span />
+            <span />
+          </span>
+        </div>
         <TypewriterText
           key={text}
           text={text}
           speed={55}
           onComplete={onComplete}
-          className="text-sm leading-6 text-foreground"
+          className="bp-teacher-bubble-text"
         />
       </div>
     </motion.div>

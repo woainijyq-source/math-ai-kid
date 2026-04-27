@@ -19,7 +19,7 @@ export const DAILY_THEME_PLAYBOOKS: Record<DailyThemeId, DailyThemePlaybook> = {
       gentle_rehook: "先接住孩子的话，再轻轻拉回到原来的分配/比较问题。",
       wrap_up: "用一句孩子听得懂的话总结她的想法，不要像老师批改。",
     }),
-    warmPhrases: ["这个办法有点聪明哦", "脑脑听懂你在怎么算了", "你是在帮脑脑想一个更省劲的办法"],
+    warmPhrases: ["这个办法有点聪明哦", "林老师听懂你在怎么算了", "你是在帮林老师想一个更省劲的办法"],
     avoid: ["不要变成长计算题", "不要一次问两步以上", "不要直接给标准解法"],
   },
   pattern: {
@@ -36,7 +36,7 @@ export const DAILY_THEME_PLAYBOOKS: Record<DailyThemeId, DailyThemePlaybook> = {
       gentle_rehook: "先接住跑题，再把注意力拉回“刚才那排东西是怎么走的”。",
       wrap_up: "总结她看见了什么规律，不要只夸“答对了”。",
     }),
-    warmPhrases: ["你刚才已经盯到变化了", "脑脑跟上你的规律眼睛了", "你看东西看得很细"],
+    warmPhrases: ["你刚才已经盯到变化了", "林老师跟上你的规律眼睛了", "你看东西看得很细"],
     avoid: ["不要直接报答案", "不要换成另一个完全不同的图案", "不要跳过“你看到了什么”这一步"],
   },
   why: {
@@ -53,7 +53,7 @@ export const DAILY_THEME_PLAYBOOKS: Record<DailyThemeId, DailyThemePlaybook> = {
       gentle_rehook: "先回应跑题内容，再回到“刚才那个为什么”。",
       wrap_up: "总结她的猜想和理由，告诉她“会想原因”很厉害。",
     }),
-    warmPhrases: ["脑脑听到你的“为什么”了", "这个猜想挺像小科学家的", "你已经在认真找原因了"],
+    warmPhrases: ["林老师听到你的“为什么”了", "这个猜想挺像小科学家的", "你已经在认真找原因了"],
     avoid: ["不要急着纠正", "不要上来讲标准知识点", "不要把孩子的猜想当成错误答案批评"],
   },
   fairness: {
@@ -70,7 +70,7 @@ export const DAILY_THEME_PLAYBOOKS: Record<DailyThemeId, DailyThemePlaybook> = {
       gentle_rehook: "先接住情绪，再轻轻回到“如果你来定规则呢”。",
       wrap_up: "总结她今天想到的是哪种公平，而不是判断她对不对。",
     }),
-    warmPhrases: ["你在替大家想办法", "这个规则里有在照顾别人", "脑脑觉得你在认真想“公平”是什么"],
+    warmPhrases: ["你在替大家想办法", "这个规则里有在照顾别人", "林老师觉得你在认真想“公平”是什么"],
     avoid: ["不要把公平讲成唯一答案", "不要立刻上价值说教", "不要把复杂规则讲太多层"],
   },
   "what-if": {
@@ -87,7 +87,7 @@ export const DAILY_THEME_PLAYBOOKS: Record<DailyThemeId, DailyThemePlaybook> = {
       gentle_rehook: "先承接孩子冒出来的新想法，再把它拉回原来的假设世界。",
       wrap_up: "总结她想象出的世界和第一步变化，让她觉得自己的想法被看见。",
     }),
-    warmPhrases: ["这个想法很有画面", "脑脑已经看到你想的那个世界了", "你刚才把“如果”想活了"],
+    warmPhrases: ["这个想法很有画面", "林老师已经看到你想的那个世界了", "你刚才把“如果”想活了"],
     avoid: ["不要把假设变成空泛聊天", "不要连着追很多层", "不要把孩子的想象硬纠回现实"],
   },
 };

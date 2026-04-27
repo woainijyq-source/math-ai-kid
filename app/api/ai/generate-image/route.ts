@@ -20,6 +20,22 @@ interface ImageResponse {
   fallbackUsed?: boolean;
 }
 
+interface BatchImageRequestItem {
+  cacheKey?: string;
+  prompt?: string;
+  alt?: string;
+  referenceImageUrl?: string;
+}
+
+interface BatchImageResponseItem extends ImageResponse {
+  cacheKey?: string;
+}
+
+interface InlineReferenceImage {
+  mimeType: string;
+  data: string;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -49,16 +65,57 @@ function getDashScopeImageSize() {
   return readLocalEnvValue("DASHSCOPE_IMAGE_SIZE") || DEFAULT_IMAGE_SIZE;
 }
 
-function buildPrompt(prompt: string, alt?: string) {
+function buildPrompt(prompt: string, alt?: string, hasReferenceImage = false) {
   const trimmedPrompt = prompt.trim();
   const altHint = alt?.trim() ? ` Scene description: ${alt.trim()}.` : "";
+  const referenceHint = hasReferenceImage
+    ? " Use the provided reference image as the visual source of truth: keep the same character design, location, lighting, camera distance, color palette, and story continuity."
+    : "";
 
   return [
     "Children's educational illustration.",
     "Friendly cartoon style for ages 6-10, warm colors, simple composition, clear learning objects.",
     "Do not add readable text unless it is explicitly requested.",
+    referenceHint,
     `${trimmedPrompt}.${altHint}`,
   ].join(" ").slice(0, 2000);
+}
+
+function parseDataUrlImage(value?: string): InlineReferenceImage | null {
+  if (!value) return null;
+  const match = value.match(/^data:([^;,]+);base64,(.+)$/);
+  if (!match) return null;
+  const [, mimeType, data] = match;
+  if (!mimeType.startsWith("image/") || !data) return null;
+  return { mimeType, data };
+}
+
+async function loadReferenceImage(referenceImageUrl?: string): Promise<InlineReferenceImage | null> {
+  const dataUrlImage = parseDataUrlImage(referenceImageUrl);
+  if (dataUrlImage) return dataUrlImage;
+
+  if (!referenceImageUrl || !/^https?:\/\//.test(referenceImageUrl)) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(referenceImageUrl, { signal: AbortSignal.timeout(12000) });
+    if (!response.ok) return null;
+
+    const contentType = response.headers.get("content-type") ?? "image/png";
+    if (!contentType.startsWith("image/")) return null;
+
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.byteLength > 8 * 1024 * 1024) return null;
+
+    return {
+      mimeType: contentType.split(";")[0] || "image/png",
+      data: bytes.toString("base64"),
+    };
+  } catch (err) {
+    console.warn("[generate-image] Reference image unavailable:", err instanceof Error ? err.message : err);
+    return null;
+  }
 }
 
 function extractGeminiImageUrl(data: unknown) {
@@ -153,10 +210,23 @@ function buildDashScopeRequestBody(prompt: string) {
   };
 }
 
-async function generateWithGemini(prompt: string, alt?: string) {
+async function generateWithGemini(prompt: string, alt?: string, referenceImage?: InlineReferenceImage | null) {
   const apiKey = getGeminiApiKey();
   if (!apiKey || apiKey.length < 10) {
     return null;
+  }
+
+  const parts: Array<Record<string, unknown>> = [
+    { text: buildPrompt(prompt, alt, Boolean(referenceImage)) },
+  ];
+
+  if (referenceImage) {
+    parts.push({
+      inlineData: {
+        mimeType: referenceImage.mimeType,
+        data: referenceImage.data,
+      },
+    });
   }
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
@@ -164,7 +234,7 @@ async function generateWithGemini(prompt: string, alt?: string) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: buildPrompt(prompt, alt) }] }],
+      contents: [{ parts }],
       generationConfig: { responseModalities: ["IMAGE", "TEXT"] },
     }),
     signal: AbortSignal.timeout(25000),
@@ -269,41 +339,7 @@ async function generateWithDashScopeAsync(prompt: string, alt?: string) {
   return pollDashScopeTask(taskId, apiKey);
 }
 
-function escapeXml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function wrapText(value: string) {
-  const chars = Array.from(value.trim() || "一张学习场景图");
-  const lines: string[] = [];
-  let current = "";
-
-  for (const char of chars) {
-    current += char;
-    if (current.length >= 14) {
-      lines.push(current);
-      current = "";
-      if (lines.length === 3) break;
-    }
-  }
-
-  if (current && lines.length < 3) {
-    lines.push(current);
-  }
-
-  return lines;
-}
-
-function buildLocalFallbackImage(alt?: string) {
-  const lines = wrapText(alt ?? "");
-  const textSpans = lines
-    .map((line, index) => `<text x="640" y="${650 + index * 58}" text-anchor="middle" class="label">${escapeXml(line)}</text>`)
-    .join("");
+function buildLocalFallbackImage() {
   const svg = `
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="880" viewBox="0 0 1280 880">
   <defs>
@@ -318,7 +354,6 @@ function buildLocalFallbackImage(alt?: string) {
     <style>
       .line{fill:none;stroke:#343a40;stroke-width:14;stroke-linecap:round;stroke-linejoin:round}
       .soft{fill:#ffffff;stroke:#343a40;stroke-width:12}
-      .label{font-family:Arial, "PingFang SC", sans-serif;font-size:40px;font-weight:700;fill:#2b3230}
     </style>
   </defs>
   <rect width="1280" height="880" rx="48" fill="url(#bg)"/>
@@ -336,23 +371,22 @@ function buildLocalFallbackImage(alt?: string) {
     <path class="line" d="M50 84c18 20 39 20 55 0"/>
     <path class="line" d="M54 54h1M99 54h1"/>
   </g>
-  ${textSpans}
 </svg>`.trim();
 
   return `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").toString("base64")}`;
 }
 
-export async function POST(request: Request) {
-  const { prompt, alt } = (await request.json()) as { prompt?: string; alt?: string };
-
+async function generateImage(prompt: string, alt?: string, referenceImageUrl?: string): Promise<ImageResponse> {
   if (!prompt?.trim()) {
-    return NextResponse.json({ error: "prompt required" }, { status: 400 });
+    return { imageUrl: null };
   }
 
+  const referenceImage = await loadReferenceImage(referenceImageUrl);
+
   try {
-    const geminiImageUrl = await generateWithGemini(prompt, alt);
+    const geminiImageUrl = await generateWithGemini(prompt, alt, referenceImage);
     if (geminiImageUrl) {
-      return NextResponse.json({ imageUrl: geminiImageUrl, provider: "gemini" } satisfies ImageResponse);
+      return { imageUrl: geminiImageUrl, provider: "gemini" };
     }
   } catch (err) {
     console.warn("[generate-image] Gemini failed:", err instanceof Error ? err.message : err);
@@ -362,16 +396,58 @@ export async function POST(request: Request) {
     const dashScopeImageUrl =
       (await generateWithDashScopeSync(prompt, alt)) ?? (await generateWithDashScopeAsync(prompt, alt));
     if (dashScopeImageUrl) {
-      return NextResponse.json({ imageUrl: dashScopeImageUrl, provider: "dashscope" } satisfies ImageResponse);
+      return { imageUrl: dashScopeImageUrl, provider: "dashscope" };
     }
   } catch (err) {
     console.warn("[generate-image] DashScope failed:", err instanceof Error ? err.message : err);
   }
 
   console.warn("[generate-image] cloud providers unavailable, returning local fallback");
-  return NextResponse.json({
-    imageUrl: buildLocalFallbackImage(alt ?? prompt),
+  return {
+    imageUrl: buildLocalFallbackImage(),
     provider: "local-fallback",
     fallbackUsed: true,
-  } satisfies ImageResponse);
+  };
+}
+
+function normalizeBatchItems(body: unknown) {
+  if (!isRecord(body) || !Array.isArray(body.items)) return null;
+  const sharedReferenceImageUrl = typeof body.referenceImageUrl === "string" ? body.referenceImageUrl : undefined;
+  return body.items
+    .filter(isRecord)
+    .slice(0, 4)
+    .map((item): BatchImageRequestItem => ({
+      cacheKey: typeof item.cacheKey === "string" ? item.cacheKey : undefined,
+      prompt: typeof item.prompt === "string" ? item.prompt : undefined,
+      alt: typeof item.alt === "string" ? item.alt : undefined,
+      referenceImageUrl: typeof item.referenceImageUrl === "string" ? item.referenceImageUrl : sharedReferenceImageUrl,
+    }));
+}
+
+export async function POST(request: Request) {
+  const body = await request.json();
+  const batchItems = normalizeBatchItems(body);
+
+  if (batchItems) {
+    const images: BatchImageResponseItem[] = [];
+    for (const item of batchItems) {
+      if (!item.prompt?.trim()) {
+        images.push({ cacheKey: item.cacheKey, imageUrl: null });
+        continue;
+      }
+
+      const result = await generateImage(item.prompt, item.alt, item.referenceImageUrl);
+      images.push({ cacheKey: item.cacheKey, ...result });
+    }
+
+    return NextResponse.json({ images });
+  }
+
+  const { prompt, alt, referenceImageUrl } = body as { prompt?: string; alt?: string; referenceImageUrl?: string };
+
+  if (!prompt?.trim()) {
+    return NextResponse.json({ error: "prompt required" }, { status: 400 });
+  }
+
+  return NextResponse.json(await generateImage(prompt, alt, referenceImageUrl));
 }

@@ -2,6 +2,12 @@ import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 import type {
+  DailyThemeId,
+  ThinkingEvidence,
+  ThinkingMove,
+  ThinkingSupportLevel,
+} from "@/types/daily";
+import type {
   ActivitySessionStatus,
   ChallengeGenerationStatus,
   DifficultyLevelName,
@@ -102,6 +108,36 @@ ensureColumn("session_logs", "profile_id", "TEXT");
 safeSchemaExec(`
   CREATE INDEX IF NOT EXISTS idx_session_logs_profile
     ON session_logs(profile_id, created_at DESC);
+`);
+
+safeSchemaExec(`
+  CREATE TABLE IF NOT EXISTS thinking_evidence (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id TEXT,
+    session_log_id INTEGER,
+    task_id TEXT NOT NULL,
+    theme_id TEXT NOT NULL,
+    scenario_id TEXT,
+    scenario_title TEXT,
+    thinking_move TEXT NOT NULL,
+    level INTEGER NOT NULL,
+    child_initiated INTEGER NOT NULL,
+    support_level TEXT NOT NULL,
+    confidence REAL NOT NULL,
+    child_utterance TEXT NOT NULL,
+    ai_prompt TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+safeSchemaExec(`
+  CREATE INDEX IF NOT EXISTS idx_thinking_evidence_profile
+    ON thinking_evidence(profile_id, created_at DESC);
+`);
+
+safeSchemaExec(`
+  CREATE INDEX IF NOT EXISTS idx_thinking_evidence_theme
+    ON thinking_evidence(profile_id, theme_id, created_at DESC);
 `);
 
 safeSchemaExec(`
@@ -259,6 +295,190 @@ export interface ObservationRow {
   repair_recommended?: RepairStrategy;
   silent_streak?: number;
   created_at?: string;
+}
+
+export interface ThinkingEvidenceRow {
+  id?: number;
+  profile_id?: string | null;
+  session_log_id?: number | null;
+  task_id: string;
+  theme_id: DailyThemeId;
+  scenario_id?: string | null;
+  scenario_title?: string | null;
+  thinking_move: ThinkingMove;
+  level: number;
+  child_initiated: number;
+  support_level: ThinkingSupportLevel;
+  confidence: number;
+  child_utterance: string;
+  ai_prompt?: string | null;
+  created_at?: string;
+}
+
+function normalizeThinkingMove(value: unknown): ThinkingMove {
+  return value === "represent" ||
+    value === "explain" ||
+    value === "compare" ||
+    value === "predict" ||
+    value === "transfer" ||
+    value === "reflect"
+    ? value
+    : "notice";
+}
+
+function normalizeThinkingSupportLevel(value: unknown): ThinkingSupportLevel {
+  return value === "none" ||
+    value === "medium" ||
+    value === "heavy"
+    ? value
+    : "light";
+}
+
+function normalizeThinkingLevel(value: unknown): 1 | 2 | 3 | 4 {
+  const numeric = Number(value);
+  if (numeric >= 4) return 4;
+  if (numeric >= 3) return 3;
+  if (numeric >= 2) return 2;
+  return 1;
+}
+
+export function toThinkingEvidence(row: ThinkingEvidenceRow): ThinkingEvidence {
+  return {
+    themeId: row.theme_id,
+    scenarioId: row.scenario_id ?? undefined,
+    scenarioTitle: row.scenario_title ?? undefined,
+    thinkingMove: normalizeThinkingMove(row.thinking_move),
+    level: normalizeThinkingLevel(row.level),
+    childInitiated: row.child_initiated > 0,
+    supportLevel: normalizeThinkingSupportLevel(row.support_level),
+    confidence: Math.max(0, Math.min(1, Number(row.confidence) || 0)),
+    childUtterance: row.child_utterance,
+    aiPrompt: row.ai_prompt ?? undefined,
+  };
+}
+
+export function insertThinkingEvidenceRows(rows: ThinkingEvidenceRow[]) {
+  if (rows.length === 0) return 0;
+
+  const statement = db.prepare(`
+    INSERT INTO thinking_evidence (
+      profile_id,
+      session_log_id,
+      task_id,
+      theme_id,
+      scenario_id,
+      scenario_title,
+      thinking_move,
+      level,
+      child_initiated,
+      support_level,
+      confidence,
+      child_utterance,
+      ai_prompt
+    )
+    VALUES (
+      @profile_id,
+      @session_log_id,
+      @task_id,
+      @theme_id,
+      @scenario_id,
+      @scenario_title,
+      @thinking_move,
+      @level,
+      @child_initiated,
+      @support_level,
+      @confidence,
+      @child_utterance,
+      @ai_prompt
+    )
+  `);
+
+  const insertMany = db.transaction((items: ThinkingEvidenceRow[]) => {
+    for (const row of items) {
+      statement.run({
+        profile_id: row.profile_id ?? null,
+        session_log_id: row.session_log_id ?? null,
+        task_id: row.task_id,
+        theme_id: row.theme_id,
+        scenario_id: row.scenario_id ?? null,
+        scenario_title: row.scenario_title ?? null,
+        thinking_move: normalizeThinkingMove(row.thinking_move),
+        level: normalizeThinkingLevel(row.level),
+        child_initiated: row.child_initiated > 0 ? 1 : 0,
+        support_level: normalizeThinkingSupportLevel(row.support_level),
+        confidence: Math.max(0, Math.min(1, Number(row.confidence) || 0)),
+        child_utterance: row.child_utterance,
+        ai_prompt: row.ai_prompt ?? null,
+      });
+    }
+  });
+
+  insertMany(rows);
+  return rows.length;
+}
+
+export function getRecentThinkingEvidence(
+  profileId: string,
+  options?: {
+    limit?: number;
+    themeId?: DailyThemeId;
+  },
+) {
+  const limit = Math.max(1, Math.min(200, options?.limit ?? 80));
+  const rows = options?.themeId
+    ? db.prepare(`
+        SELECT
+          id,
+          profile_id,
+          session_log_id,
+          task_id,
+          theme_id,
+          scenario_id,
+          scenario_title,
+          thinking_move,
+          level,
+          child_initiated,
+          support_level,
+          confidence,
+          child_utterance,
+          ai_prompt,
+          created_at
+        FROM thinking_evidence
+        WHERE profile_id = ? AND theme_id = ?
+        ORDER BY datetime(created_at) DESC, id DESC
+        LIMIT ?
+      `).all(profileId, options.themeId, limit) as ThinkingEvidenceRow[]
+    : db.prepare(`
+        SELECT
+          id,
+          profile_id,
+          session_log_id,
+          task_id,
+          theme_id,
+          scenario_id,
+          scenario_title,
+          thinking_move,
+          level,
+          child_initiated,
+          support_level,
+          confidence,
+          child_utterance,
+          ai_prompt,
+          created_at
+        FROM thinking_evidence
+        WHERE profile_id = ?
+        ORDER BY datetime(created_at) DESC, id DESC
+        LIMIT ?
+      `).all(profileId, limit) as ThinkingEvidenceRow[];
+
+  return rows.map((row) => ({
+    ...toThinkingEvidence(row),
+    id: row.id,
+    profileId: row.profile_id ?? undefined,
+    sessionLogId: row.session_log_id ?? undefined,
+    taskId: row.task_id,
+    createdAt: row.created_at ?? new Date().toISOString(),
+  }));
 }
 
 export interface ActivitySessionRow {

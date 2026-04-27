@@ -1,7 +1,10 @@
 import { DAILY_QUESTION_BANK } from "@/content/daily/daily-question-bank";
+import { buildScenarioQuestionVariant } from "@/content/daily/scenario-templates";
 import { mathProgressionOrder } from "@/content/math-progression";
 import { classifyDailyChildSignal } from "@/lib/daily/child-signal";
 import { getMathStageGoalMapping } from "@/lib/daily/theme-goal-mapping";
+import { pickLeastRepeatedQuestion } from "@/lib/daily/thinking-growth-progress";
+import { buildThinkingEvidenceFromConversation } from "@/lib/daily/thinking-evidence";
 import type { ConversationMessage } from "@/types/agent";
 import type {
   MathDifficultySignal,
@@ -89,14 +92,6 @@ function retreatStage(currentStage: ProgressionStageId): ProgressionStageId {
   const currentIndex = mathProgressionOrder.indexOf(currentStage);
   const previousStage = mathProgressionOrder[Math.max(currentIndex - 1, 0)] ?? currentStage;
   return clampStageToAvailable(previousStage);
-}
-
-function hashSeed(seed: string) {
-  let hash = 0;
-  for (let index = 0; index < seed.length; index += 1) {
-    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
-  }
-  return hash;
 }
 
 function extractChildMessages(conversation: ConversationMessage[]) {
@@ -208,6 +203,11 @@ export function assessMathConversation(params: {
     adaptationLevel: getMathStageLevel(progressionStageId),
     nextSuggestedLevel: getMathStageLevel(nextSuggestedStageId),
     nextSuggestedStageId,
+    thinkingEvidence: buildThinkingEvidenceFromConversation({
+      question: params.question,
+      conversation: params.conversation,
+      supportLevel,
+    }),
   };
 }
 
@@ -233,7 +233,7 @@ export function inferLiveMathTurnAdaptation(params: {
       shouldAddHalfStepTwist: false,
       shouldShrinkScope: true,
       summary: "这一步对孩子来说偏吃力，先缩小范围、减少变量，让她重新进入。",
-      promptRule: "先把问题缩小一点：对象更少、条件更少、问题更短。优先给两个方向，不要继续加难。",
+      promptRule: "先把问题缩小一点：对象更少、条件更少、问题更短。优先给 3 个方向；只有极低压力接话才给两个方向，不要继续加难。",
     };
   }
 
@@ -303,7 +303,7 @@ export function selectAdaptiveMathQuestion(input: {
   const stageGoalMapping = getMathStageGoalMapping(targetStage);
   const preferredSubGoalIds = stageGoalMapping.preferredSubGoalIds ?? [stageGoalMapping.subGoalId];
   if (requested && getMathQuestionStage(requested) === targetStage) {
-    return requested;
+    return buildScenarioQuestionVariant(requested, input.rotationSeed);
   }
   const stagePool = DAILY_QUESTION_BANK.filter((question) =>
     isMathQuestion(question) && getMathQuestionStage(question) === targetStage,
@@ -319,9 +319,13 @@ export function selectAdaptiveMathQuestion(input: {
     return normalizedLeft - normalizedRight;
   });
 
-  const seed = typeof input.rotationSeed === "number"
-    ? input.rotationSeed
-    : hashSeed(String(input.rotationSeed ?? new Date().toISOString().slice(0, 10)));
-
-  return pool[Math.abs(seed) % pool.length];
+  const selected = pickLeastRepeatedQuestion({
+    questions: pool,
+    themeId: "math",
+    recentLogs: input.recentLogs,
+    rotationSeed: input.rotationSeed,
+  });
+  return selected
+    ? buildScenarioQuestionVariant(selected, input.rotationSeed)
+    : undefined;
 }

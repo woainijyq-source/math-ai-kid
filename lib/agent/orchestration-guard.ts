@@ -88,21 +88,19 @@ export function enforceOrchestration(
     calls = [fallbackNarrate, ...calls];
   }
 
-  // 规则 6 (Task 3)：包含 show_text_input / request_voice 但 narrate 文案是通用的
-  // → 用输入工具的 prompt 替换 narrate 文案，保证追问有实质语音内容
+  // 规则 6：包含输入工具时，narrate 只做短承接，真正问题留在输入工具里。
   const inputTool = calls.find((tc) => isInputRequest(tc.name));
   const narrateTool = calls.find((tc) => tc.name === "narrate");
   if (inputTool && narrateTool) {
-    const inputPrompt = (inputTool.arguments as Record<string, unknown>)?.prompt;
     const narrateText = (narrateTool.arguments as Record<string, unknown>)?.text;
     const isGenericNarrate =
       typeof narrateText === "string" &&
       (narrateText === "好，我们先轻轻接住这一小步。" || narrateText.length < 5);
-    if (isGenericNarrate && typeof inputPrompt === "string" && inputPrompt.length > 0) {
-      console.debug("[followup-guard] replacing generic narrate with input prompt for TTS");
+    if (isGenericNarrate) {
       narrateTool.arguments = {
         ...(narrateTool.arguments as Record<string, unknown>),
-        text: inputPrompt,
+        text: "我听见了，我们接着看这一小步。",
+        autoSpeak: false,
       };
     }
   }

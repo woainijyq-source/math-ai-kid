@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "smoke": "node scripts/smoke-test.mjs",
+    "turn:check": "node scripts/test-turn-validator.mjs",
+    "evidence:check": "node scripts/test-thinking-evidence.mjs",
     "gateway:check": "node scripts/gateway-check.mjs",
     "stage2:check": "npx tsx scripts/test-pattern-recognition-stage2.ts"
   },
@@ -15,6 +17,7 @@
     "@types/ws": "^8.18.1",
     "better-sqlite3": "^12.8.0",
     "framer-motion": "^12.38.0",
+    "lottie-web": "^5.13.0",
     "next": "16.1.7",
     "react": "19.2.3",
     "react-dom": "19.2.3",

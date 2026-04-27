@@ -8,7 +8,7 @@ import { getDefaultDailyThemeId } from "@/lib/daily/select-daily-question";
 import { useIsClient } from "@/hooks/use-is-client";
 import { useAgentStore } from "@/store/agent-store";
 import { useProfileStore } from "@/store/profile-store";
-import { TEACHER_AVATAR_SRC, TEACHER_NAME } from "@/components/agent/teacher-character";
+import { TEACHER_AVATAR_SRC, TEACHER_NAME, TeacherCharacter } from "@/components/agent/teacher-character";
 import type { DailyThemeId } from "@/types/daily";
 
 function buildSessionHref(options: {
@@ -54,7 +54,7 @@ export function HomePage() {
             alt={TEACHER_NAME}
             width={48}
             height={48}
-            className="bp-brand-mark p-1"
+            className="bp-brand-mark object-cover p-1"
           />
           <div className="min-w-0">
             <p className="text-sm font-black uppercase tracking-[0.22em] text-accent">BrainPlay</p>
@@ -122,14 +122,9 @@ export function HomePage() {
             className="bp-home-teacher"
           >
             <div className="bp-home-orbit" />
-            <Image
-              src="/illustrations/character/teacher-encouraging.svg"
-              alt={TEACHER_NAME}
-              width={260}
-              height={260}
-              priority
-              className="bp-home-teacher-image float-up"
-            />
+            <div className="bp-home-teacher-animation">
+              <TeacherCharacter mood="encouraging" isSpeaking={false} size="large" />
+            </div>
             <div className="bp-home-speech">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">{TEACHER_NAME}</p>
               <p className="mt-2 text-lg font-black text-foreground">我先听你想到的第一句。</p>

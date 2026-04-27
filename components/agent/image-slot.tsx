@@ -1,54 +1,27 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  buildGeneratedImageCacheKey,
+  forgetGeneratedImage,
+  getCachedGeneratedImage,
+  requestGeneratedImage,
+} from "./generated-image-client";
 
 interface ImageSlotProps {
   alt: string;
   imageUrl?: string;
   generatePrompt?: string;
+  onImageReady?: (imageUrl: string | null) => void;
 }
 
-const generatedImageCache = new Map<string, string>();
-const inFlightImageRequests = new Map<string, Promise<string | null>>();
-
-function buildCacheKey(alt: string, generatePrompt?: string) {
-  return `${alt}::${generatePrompt ?? ""}`;
-}
-
-async function requestGeneratedImage(cacheKey: string, prompt: string, alt: string) {
-  const existing = inFlightImageRequests.get(cacheKey);
-  if (existing) {
-    return existing;
-  }
-
-  const request = (async () => {
-    try {
-      const response = await fetch("/api/ai/generate-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, alt }),
-      });
-      const data = (await response.json()) as { imageUrl?: string | null };
-      const url = typeof data.imageUrl === "string" && data.imageUrl.length > 0 ? data.imageUrl : null;
-      if (url) {
-        generatedImageCache.set(cacheKey, url);
-      }
-      return url;
-    } finally {
-      inFlightImageRequests.delete(cacheKey);
-    }
-  })();
-
-  inFlightImageRequests.set(cacheKey, request);
-  return request;
-}
-
-export function ImageSlot({ alt, imageUrl, generatePrompt }: ImageSlotProps) {
-  const cacheKey = useMemo(() => buildCacheKey(alt, generatePrompt), [alt, generatePrompt]);
-  const cachedUrl = useMemo(() => generatedImageCache.get(cacheKey) ?? null, [cacheKey]);
-  const [generatedUrl, setGeneratedUrl] = useState<string | null>(() => generatedImageCache.get(cacheKey) ?? null);
+export function ImageSlot({ alt, imageUrl, generatePrompt, onImageReady }: ImageSlotProps) {
+  const cacheKey = useMemo(() => buildGeneratedImageCacheKey(alt, generatePrompt), [alt, generatePrompt]);
+  const cachedUrl = useMemo(() => getCachedGeneratedImage(cacheKey), [cacheKey]);
+  const [generatedUrl, setGeneratedUrl] = useState<string | null>(() => getCachedGeneratedImage(cacheKey));
   const [brokenUrl, setBrokenUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const reportedReadyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (imageUrl) {
@@ -89,6 +62,22 @@ export function ImageSlot({ alt, imageUrl, generatePrompt }: ImageSlotProps) {
   const src = candidateSrc && candidateSrc !== brokenUrl ? candidateSrc : null;
   const generating = !src && !failed && Boolean(generatePrompt);
 
+  useEffect(() => {
+    reportedReadyRef.current = null;
+  }, [cacheKey]);
+
+  const reportReady = useCallback((readyUrl: string | null) => {
+    const signature = `${cacheKey}:${readyUrl ?? "none"}`;
+    if (reportedReadyRef.current === signature) return;
+    reportedReadyRef.current = signature;
+    onImageReady?.(readyUrl);
+  }, [cacheKey, onImageReady]);
+
+  useEffect(() => {
+    if (src || generating) return;
+    reportReady(null);
+  }, [generating, reportReady, src]);
+
   if (src) {
     return (
       <div className="w-full max-w-[560px] overflow-hidden rounded-[24px] border border-white/70 bg-white/78 shadow-sm">
@@ -98,11 +87,13 @@ export function ImageSlot({ alt, imageUrl, generatePrompt }: ImageSlotProps) {
           alt={alt}
           className="block aspect-[16/10] w-full object-cover"
           loading="eager"
+          onLoad={() => reportReady(src)}
           onError={() => {
-            generatedImageCache.delete(cacheKey);
+            forgetGeneratedImage(cacheKey);
             setBrokenUrl(src);
             setGeneratedUrl(null);
             setFailed(true);
+            reportReady(null);
           }}
         />
       </div>

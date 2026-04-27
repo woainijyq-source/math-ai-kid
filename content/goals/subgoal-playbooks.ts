@@ -151,7 +151,7 @@ export const SUBGOAL_PLAYBOOKS: Record<PilotSubGoalId, SubGoalPlaybook> = {
     fallbackRules: [
       {
         condition: "连续 2 次只有答案，没有任何规则表达。",
-        action: "保持当前难度，切到低压修复：先让孩子教脑脑，再改成半结构化句架。",
+        action: "保持当前难度，切到低压修复：先让孩子教林老师，再改成半结构化句架。",
       },
       {
         condition: "提示走到第 3 层仍然说不出规律。",
@@ -196,18 +196,18 @@ export const SUBGOAL_PLAYBOOKS: Record<PilotSubGoalId, SubGoalPlaybook> = {
     },
     repairPrompts: {
       contrastive_rebuttal: [
-        "那为什么不能是另一个答案呢？你帮脑脑挡一下错答案。",
+        "那为什么不能是另一个答案呢？你帮林老师挡一下错答案。",
         "如果我故意选错了，它到底错在哪里？",
         "你觉得另一个答案哪里没跟前面一样？",
       ],
       feynman_teach_me: [
         "你太快就看出来了，我还没跟上，你教教我它是怎么变的。",
-        "你像小老师一样，带脑脑再看一遍：它每次怎么变？",
-        "脑脑有点慢，你带我一步一步看这排东西在怎么走。",
+        "你像小老师一样，带林老师再看一遍：它每次怎么变？",
+        "林老师有点慢，你带我一步一步看这排东西在怎么走。",
       ],
       attention_recovery: [
-        "刚才那一题脑脑怕自己没跟上，你是怎么想到这个答案的呀？",
-        "脑脑想再跟一下刚才那一步，你愿意带我看一眼吗？",
+        "刚才那一题林老师怕自己没跟上，你是怎么想到这个答案的呀？",
+        "林老师想再跟一下刚才那一步，你愿意带我看一眼吗？",
       ],
       sentence_frame: [
         "我们把它说完整一点：它是不是每次都在___？",
@@ -218,15 +218,15 @@ export const SUBGOAL_PLAYBOOKS: Record<PilotSubGoalId, SubGoalPlaybook> = {
     handoffPrompts: {
       contrastive_rebuttal: [
         "说到刚才那一题，你已经选对了，那为什么不能是另一个答案呢？",
-        "刚才你已经看出来了，脑脑继续追问一下：错答案到底错在哪里？",
+        "刚才你已经看出来了，林老师继续追问一下：错答案到底错在哪里？",
       ],
       feynman_teach_me: [
         "刚才你太快就看出来了，我还没跟上，你教教我你是怎么发现的？",
-        "说到刚才那一排，你已经选对了，脑脑还想请你带我看一遍。",
+        "说到刚才那一排，你已经选对了，林老师还想请你带我看一遍。",
       ],
       attention_recovery: [
-        "刚才那一题脑脑怕自己没听清，你是怎么选出这个答案的呀？",
-        "说到刚才那一题，脑脑想再确认一下，你刚才是怎么想到的？",
+        "刚才那一题林老师怕自己没听清，你是怎么选出这个答案的呀？",
+        "说到刚才那一题，林老师想再确认一下，你刚才是怎么想到的？",
       ],
       sentence_frame: [
         "刚才那题你已经选对了，我们把它说完整一点：它是不是每次都在___？",
@@ -234,8 +234,8 @@ export const SUBGOAL_PLAYBOOKS: Record<PilotSubGoalId, SubGoalPlaybook> = {
       ],
     },
     attentionRecoveryPrompts: [
-      "刚才那一题脑脑怕自己没听清，你是怎么选出这个答案的呀？",
-      "脑脑想跟上你刚才那一题的速度，你再带我看一下好吗？",
+      "刚才那一题林老师怕自己没听清，你是怎么选出这个答案的呀？",
+      "林老师想跟上你刚才那一题的速度，你再带我看一下好吗？",
     ],
     handoffExpiryMinutes: 15,
     ruleFragments: [

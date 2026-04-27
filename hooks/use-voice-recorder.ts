@@ -13,11 +13,13 @@ interface BrowserSpeechRecognitionAlternative {
 
 interface BrowserSpeechRecognitionResult {
   length: number;
+  isFinal?: boolean;
   [index: number]: BrowserSpeechRecognitionAlternative;
 }
 
 interface BrowserSpeechRecognitionEvent extends Event {
   results: ArrayLike<BrowserSpeechRecognitionResult>;
+  resultIndex?: number;
 }
 
 interface BrowserSpeechRecognitionErrorEvent extends Event {
@@ -42,6 +44,7 @@ type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
 
 export interface UseVoiceRecorderResult {
   voiceState: VoiceState;
+  liveTranscript: string;
   startRecording: () => Promise<void>;
   stopRecording: () => void;
 }
@@ -65,20 +68,26 @@ function getBrowserSpeechRecognitionConstructor(): BrowserSpeechRecognitionConst
   return recognition ?? null;
 }
 
-function shouldUseBrowserSpeechRecognition() {
-  return process.env.NEXT_PUBLIC_USE_BROWSER_SPEECH_RECOGNITION === "1";
-}
-
 function readRecognitionTranscript(event: BrowserSpeechRecognitionEvent) {
-  let transcript = "";
+  let finalTranscript = "";
+  let interimTranscript = "";
 
   for (let i = 0; i < event.results.length; i += 1) {
     const result = event.results[i];
     if (!result || result.length === 0) continue;
-    transcript += result[0]?.transcript ?? "";
+    const transcript = result[0]?.transcript ?? "";
+    if (result.isFinal) {
+      finalTranscript += transcript;
+    } else {
+      interimTranscript += transcript;
+    }
   }
 
-  return transcript.trim();
+  return {
+    finalTranscript: finalTranscript.trim(),
+    interimTranscript: interimTranscript.trim(),
+    combinedTranscript: `${finalTranscript}${interimTranscript}`.trim(),
+  };
 }
 
 function mergeFloat32Chunks(chunks: Float32Array[]) {
@@ -153,6 +162,7 @@ export function useVoiceRecorder(
   onError?: () => void,
 ): UseVoiceRecorderResult {
   const [voiceState, setVoiceState] = useState<VoiceState>("idle");
+  const [liveTranscript, setLiveTranscript] = useState("");
   const resultRef = useRef(onResult);
   const errorRef = useRef(onError);
   const streamRef = useRef<MediaStream | null>(null);
@@ -164,6 +174,8 @@ export function useVoiceRecorder(
   const usingBrowserRecognitionRef = useRef(false);
   const stopRequestedRef = useRef(false);
   const transcriptDeliveredRef = useRef(false);
+  const finalTranscriptRef = useRef("");
+  const liveTranscriptRef = useRef("");
   const chunksRef = useRef<Float32Array[]>([]);
   const sampleRateRef = useRef<number>(TARGET_SAMPLE_RATE);
 
@@ -196,6 +208,8 @@ export function useVoiceRecorder(
     usingBrowserRecognitionRef.current = false;
     stopRequestedRef.current = false;
     transcriptDeliveredRef.current = false;
+    finalTranscriptRef.current = "";
+    liveTranscriptRef.current = "";
 
     if (!recognition) {
       return;
@@ -222,16 +236,17 @@ export function useVoiceRecorder(
 
   const startRecording = useCallback(async () => {
     if (voiceState !== "idle") return;
+    setLiveTranscript("");
+    finalTranscriptRef.current = "";
+    liveTranscriptRef.current = "";
 
-    const BrowserRecognition = shouldUseBrowserSpeechRecognition()
-      ? getBrowserSpeechRecognitionConstructor()
-      : null;
+    const BrowserRecognition = getBrowserSpeechRecognitionConstructor();
     if (BrowserRecognition) {
       try {
         const recognition = new BrowserRecognition();
         recognition.lang = "zh-CN";
-        recognition.continuous = false;
-        recognition.interimResults = false;
+        recognition.continuous = true;
+        recognition.interimResults = true;
         recognition.maxAlternatives = 1;
 
         usingBrowserRecognitionRef.current = true;
@@ -245,12 +260,13 @@ export function useVoiceRecorder(
 
         recognition.onresult = (event) => {
           const transcript = readRecognitionTranscript(event);
-          if (!transcript) {
+          if (!transcript.combinedTranscript) {
             return;
           }
 
-          transcriptDeliveredRef.current = true;
-          resultRef.current(transcript);
+          finalTranscriptRef.current = transcript.finalTranscript || finalTranscriptRef.current;
+          liveTranscriptRef.current = transcript.combinedTranscript;
+          setLiveTranscript(transcript.combinedTranscript);
         };
 
         recognition.onerror = () => {
@@ -260,6 +276,11 @@ export function useVoiceRecorder(
         };
 
         recognition.onend = () => {
+          const transcript = (liveTranscriptRef.current || finalTranscriptRef.current).trim();
+          if (transcript) {
+            transcriptDeliveredRef.current = true;
+            resultRef.current(transcript);
+          }
           const delivered = transcriptDeliveredRef.current;
           const manuallyStopped = stopRequestedRef.current;
           cleanupBrowserRecognition();
@@ -363,5 +384,5 @@ export function useVoiceRecorder(
 
   useEffect(() => cleanup, [cleanup]);
 
-  return { voiceState, startRecording, stopRecording };
+  return { voiceState, liveTranscript, startRecording, stopRecording };
 }

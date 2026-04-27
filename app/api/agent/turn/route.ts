@@ -9,10 +9,12 @@ import { buildDailyQuestionMockTurn } from "@/lib/daily/mock";
 import { buildDynamicConversationActivity } from "@/lib/daily/dynamic-conversation";
 import { buildDailyQuestionActivity, selectDailyQuestion } from "@/lib/daily/select-daily-question";
 import { getThemeGoalMapping } from "@/lib/daily/theme-goal-mapping";
+import { inferProjectTargetLevel } from "@/lib/daily/thinking-growth-progress";
 import { encodeSSE } from "@/lib/agent/stream-parser";
 import { shouldUseFastPath, runFastPath } from "@/lib/agent/fast-path";
 import { selectActivityForSubGoal } from "@/lib/agent/activity-selector";
 import { getActivitySession, getLatestActivitySessionForSession, getRecentObservationSummaries } from "@/lib/data/db";
+import { listRecentSessionLogs } from "@/lib/data/session-log";
 import { ensureCurrentActivitySession } from "@/lib/training/activity-session-manager";
 import { getFormalScoredSubGoalForGoal, resolveScoringMode } from "@/lib/training/domain-pedagogy";
 import { cleanupIdleActivitySessions, evaluatePendingActivitySessions, logInteractionEvent } from "@/lib/training/evaluator-agent";
@@ -97,6 +99,7 @@ export async function POST(req: NextRequest) {
             })
           : undefined;
         const activeThemeId = requestedDailyQuestion?.themeId ?? themeId;
+        const recentSessionLogs = activeThemeId ? listRecentSessionLogs(30, resolvedProfile.id) : [];
         const themeGoalMapping = getThemeGoalMapping(activeThemeId);
         const focusGoalId = requestedDailyQuestion?.goalId ?? themeGoalMapping?.goalId ?? resolveGoalFocus(goalFocus, resolvedProfile);
         const recentObservations = getRecentObservationSummaries(resolvedProfile.id, {
@@ -133,6 +136,7 @@ export async function POST(req: NextRequest) {
               themeId: activeThemeId,
               childInput: input,
               turnIndex,
+              growthLevel: activeThemeId ? inferProjectTargetLevel(activeThemeId, recentSessionLogs) : undefined,
             }),
             currentActivityId: dynamicActivityId,
             currentGoalId: focusGoalId,

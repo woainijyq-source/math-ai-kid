@@ -1,43 +1,34 @@
 import { DAILY_QUESTION_BANK } from "@/content/daily/daily-question-bank";
+import {
+  buildScenarioQuestionVariant,
+  getScenarioTemplateForQuestion,
+} from "@/content/daily/scenario-templates";
 import { classifyDailyChildSignal } from "@/lib/daily/child-signal";
 import { assessMathConversation, getMathQuestionStage, getMathStageLevel, selectAdaptiveMathQuestion } from "@/lib/daily/math-adaptation";
+import { inferProjectTargetLevel, pickLeastRepeatedQuestion } from "@/lib/daily/thinking-growth-progress";
+import { buildThinkingEvidenceFromConversation } from "@/lib/daily/thinking-evidence";
 import type { ConversationMessage } from "@/types/agent";
 import type { MathDifficultySignal, MathSupportLevel } from "@/types";
 import type { DailyQuestion, DailyThemeId } from "@/types/daily";
 import type { SessionLogItem } from "@/lib/data/session-log";
 
-const THEME_PREFIX: Record<DailyThemeId, string> = {
-  math: "math-",
-  pattern: "pattern-",
-  why: "why-",
-  fairness: "fairness-",
-  "what-if": "whatif-",
-};
-
-function hashSeed(seed: string) {
-  let hash = 0;
-  for (let index = 0; index < seed.length; index += 1) {
-    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
-  }
-  return hash;
-}
-
 export function getThemeQuestionLevel(question: DailyQuestion): number {
   if (question.themeId === "math") {
     return getMathStageLevel(getMathQuestionStage(question));
   }
-  return question.adaptationLevel ?? 1;
+  return getScenarioTemplateForQuestion(question)?.levelRange[0] ?? question.adaptationLevel ?? 1;
+}
+
+function questionSupportsThemeLevel(question: DailyQuestion, targetLevel: number) {
+  const template = getScenarioTemplateForQuestion(question);
+  if (template) {
+    return targetLevel >= template.levelRange[0] && targetLevel <= template.levelRange[1];
+  }
+  return getThemeQuestionLevel(question) === targetLevel;
 }
 
 function listThemeQuestions(themeId: DailyThemeId) {
   return DAILY_QUESTION_BANK.filter((question) => question.themeId === themeId);
-}
-
-function listRecentThemeSessionLogs(logs: SessionLogItem[], themeId: DailyThemeId) {
-  const prefix = THEME_PREFIX[themeId];
-  return logs.filter((log) =>
-    log.mathEvidence?.themeId === themeId || log.taskId.startsWith(prefix),
-  );
 }
 
 function inferThemeSupportLevel(question: DailyQuestion, conversation: ConversationMessage[]): MathSupportLevel {
@@ -117,32 +108,16 @@ export function assessAdaptiveConversation(question: DailyQuestion, conversation
     difficultySignal,
     adaptationLevel: currentLevel,
     nextSuggestedLevel,
+    thinkingEvidence: buildThinkingEvidenceFromConversation({
+      question,
+      conversation,
+      supportLevel,
+    }),
   };
 }
 
 export function inferThemeLevelFromRecentLogs(themeId: DailyThemeId, logs: SessionLogItem[]) {
-  if (themeId === "math") {
-    const latestMath = listRecentThemeSessionLogs(logs, themeId);
-    return latestMath[0]?.mathEvidence?.adaptationLevel ?? 1;
-  }
-
-  const themeLogs = listRecentThemeSessionLogs(logs, themeId).slice(0, 5);
-  const latestLevel = themeLogs[0]?.mathEvidence?.adaptationLevel ?? 1;
-  const recentSignals = themeLogs
-    .map((log) => log.mathEvidence?.difficultySignal)
-    .filter((signal): signal is MathDifficultySignal => Boolean(signal))
-    .slice(0, 3);
-
-  const tooEasyCount = recentSignals.filter((signal) => signal === "too_easy").length;
-  const tooHardCount = recentSignals.filter((signal) => signal === "too_hard").length;
-
-  if (tooEasyCount >= 2) {
-    return latestLevel + 1;
-  }
-  if (tooHardCount >= 2) {
-    return Math.max(1, latestLevel - 1);
-  }
-  return themeLogs[0]?.mathEvidence?.nextSuggestedLevel ?? latestLevel;
+  return inferProjectTargetLevel(themeId, logs);
 }
 
 export function selectAdaptiveQuestion(input: {
@@ -164,15 +139,24 @@ export function selectAdaptiveQuestion(input: {
     : undefined;
   const targetLevel = inferThemeLevelFromRecentLogs(input.themeId, input.recentLogs);
 
-  if (requested && getThemeQuestionLevel(requested) === targetLevel) {
-    return requested;
+  if (requested && questionSupportsThemeLevel(requested, targetLevel)) {
+    return buildScenarioQuestionVariant(requested, input.rotationSeed);
   }
 
-  const levelPool = listThemeQuestions(input.themeId).filter((question) => getThemeQuestionLevel(question) === targetLevel);
-  const pool = levelPool.length > 0 ? levelPool : listThemeQuestions(input.themeId);
-  const seed = typeof input.rotationSeed === "number"
-    ? input.rotationSeed
-    : hashSeed(String(input.rotationSeed ?? new Date().toISOString().slice(0, 10)));
+  const themeQuestions = listThemeQuestions(input.themeId);
+  const levelPool = themeQuestions.filter((question) => questionSupportsThemeLevel(question, targetLevel));
+  if (levelPool.length === 0 && themeQuestions.some((question) => getThemeQuestionLevel(question) < targetLevel)) {
+    return undefined;
+  }
 
-  return pool[Math.abs(seed) % pool.length];
+  const pool = levelPool.length > 0 ? levelPool : themeQuestions;
+  const selected = pickLeastRepeatedQuestion({
+    questions: pool,
+    themeId: input.themeId,
+    recentLogs: input.recentLogs,
+    rotationSeed: input.rotationSeed,
+  });
+  return selected
+    ? buildScenarioQuestionVariant(selected, input.rotationSeed)
+    : undefined;
 }

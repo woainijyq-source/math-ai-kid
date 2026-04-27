@@ -1,12 +1,57 @@
 "use client";
 
-import Image from "next/image";
+type ChoiceVisualKind = "fridge" | "window" | "bag" | "spark";
+
+function getChoiceVisualKind(label: string, description: string): ChoiceVisualKind {
+  const text = `${label} ${description}`;
+  if (/(冰箱|牛奶|水果|吃的|点心|食物)/.test(text)) return "fridge";
+  if (/(窗|树|鸟|外面|天空|花|路)/.test(text)) return "window";
+  if (/(书包|包|书|铅笔|文具|作业)/.test(text)) return "bag";
+  return "spark";
+}
+
+function ChoiceMiniScene({ kind }: { kind: ChoiceVisualKind }) {
+  return (
+    <span className={`bp-choice-scene bp-choice-scene-${kind}`} aria-hidden="true">
+      <span className="bp-choice-sky" />
+      {kind === "fridge" && (
+        <>
+          <span className="bp-choice-fridge" />
+          <span className="bp-choice-bottle" />
+          <span className="bp-choice-fruit" />
+        </>
+      )}
+      {kind === "window" && (
+        <>
+          <span className="bp-choice-window-frame" />
+          <span className="bp-choice-tree" />
+          <span className="bp-choice-bird" />
+        </>
+      )}
+      {kind === "bag" && (
+        <>
+          <span className="bp-choice-bag" />
+          <span className="bp-choice-pencil" />
+          <span className="bp-choice-note" />
+        </>
+      )}
+      {kind === "spark" && (
+        <>
+          <span className="bp-choice-spark-one" />
+          <span className="bp-choice-spark-two" />
+          <span className="bp-choice-spark-three" />
+        </>
+      )}
+    </span>
+  );
+}
 
 export function ChoiceCard({
   label,
   description,
   badge,
   imageUrl,
+  imageStatus = "idle",
   disabled = false,
   onClick,
 }: {
@@ -14,47 +59,60 @@ export function ChoiceCard({
   description: string;
   badge?: string;
   imageUrl?: string;
+  imageStatus?: "idle" | "loading" | "ready" | "failed";
   disabled?: boolean;
   onClick: () => void;
 }) {
+  const visualKind = getChoiceVisualKind(label, description);
+
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`bp-theme-card group flex min-h-[178px] w-full flex-col overflow-hidden p-0 text-left transition ${
+      className={`bp-choice-card bp-choice-card-${visualKind} ${
+        imageStatus === "loading"
+          ? "bp-choice-card-loading"
+          : ""
+      } ${
         disabled
           ? "cursor-not-allowed opacity-60"
-          : "hover:border-accent/50"
+          : ""
       }`}
     >
-      <div className="choice-card-art relative flex min-h-[78px] items-center justify-center overflow-hidden px-4 pb-3 pt-4">
+      <span className="bp-choice-art">
         {imageUrl ? (
-          <Image
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
             src={imageUrl}
             alt={label}
-            width={160}
-            height={80}
-            className="max-h-20 w-auto object-contain"
+            className="bp-choice-image"
           />
         ) : (
-          <>
-            {badge ? (
-              <div className="bp-chip px-3 py-1 text-[10px]">
-                {badge}
-              </div>
-            ) : null}
-            <div className="choice-card-orb absolute right-4 top-4 h-12 w-12 rounded-full" />
-            <div className="choice-card-path absolute bottom-0 left-4 right-4 h-7 rounded-t-[20px]" />
-          </>
+          <ChoiceMiniScene kind={visualKind} />
         )}
-      </div>
+        {imageStatus === "loading" && (
+          <span className="bp-choice-image-state" aria-live="polite">
+            配图中
+          </span>
+        )}
+        {imageStatus === "failed" && (
+          <span className="bp-choice-image-state bp-choice-image-state-muted">
+            小场景
+          </span>
+        )}
+        <span className="bp-choice-zoom" aria-hidden="true">⌕</span>
+      </span>
 
-      <div className="relative z-10 flex flex-1 flex-col px-4 pb-4 pt-3">
-        <div className="text-lg font-black tracking-tight text-foreground">{label}</div>
-        <div className="mt-2 text-sm leading-6 text-ink-soft">{description}</div>
-        <div className="mt-auto pt-4 text-sm font-black text-accent">就走这条路</div>
-      </div>
+      <span className="bp-choice-body">
+        {badge && <span className="bp-choice-badge">{badge}</span>}
+        <span className="bp-choice-title">{label}</span>
+        {description && <span className="bp-choice-desc">{description}</span>}
+        <span className="bp-choice-action">
+          <span className="bp-choice-action-hand" aria-hidden="true">☝</span>
+          <span>选这个</span>
+        </span>
+      </span>
     </button>
   );
 }

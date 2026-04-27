@@ -76,7 +76,7 @@ export const FIRST_LAUNCH_TOOLS: ToolDefinition[] = [
     function: {
       name: "show_choices",
       description:
-        "向孩子展示 2-4 个思路方向卡片，等待孩子选择一个更容易开口的方向。【重要】如果选项需要图形（如规律图案、形状观察），请在 choices 每个元素中附带 imageUrl 字段（调用 /api/ai/generate-image 获得），而不只是文字标签。展示型工具，配合 narrate 一起调用。",
+        "向孩子展示默认 3 个思路方向卡片，等待孩子选择一个更容易开口的方向。每个选项卡会自动尝试生成配图；如果前面刚展示过 show_image，选项的 imageAlt/generatePrompt 必须延续同一场景、角色、光线和画风。如果你已经有图，可在 choices 元素中附带 imageUrl。展示型工具，配合 narrate 一起调用。",
       parameters: {
         type: "object",
         properties: {
@@ -86,7 +86,7 @@ export const FIRST_LAUNCH_TOOLS: ToolDefinition[] = [
           },
           choices: {
             type: "array",
-            description: "思路方向列表，2-4 项。几何图形或规律观察建议每个选项附带 imageUrl。",
+            description: "思路方向列表，默认 3 项；视觉题、故事场景题、答案选项卡必须给 3 项。几何图形或规律观察建议每个选项附带 imageUrl 或 generatePrompt。",
             items: {
               type: "object",
               properties: {
@@ -94,6 +94,8 @@ export const FIRST_LAUNCH_TOOLS: ToolDefinition[] = [
                 label: { type: "string", description: "选项简短标签" },
                 desc: { type: "string", description: "可选的选项补充说明" },
                 imageUrl: { type: "string", description: "可选的图片 URL，适用于需要可视化选项的场景（如图形规律题），优先使用 imageUrl 而非纯文字 label" },
+                imageAlt: { type: "string", description: "可选的图片替代说明，用于生成或展示选项卡配图；如果前面有 show_image，要写成同一场景中的这个选项画面" },
+                generatePrompt: { type: "string", description: "可选的选项卡配图生成提示词；如果前面有 show_image，必须明确保持同一角色、地点、光线、镜头距离和儿童绘本画风。未提供时前端会自动拼接" },
               },
               required: ["id", "label"],
             },

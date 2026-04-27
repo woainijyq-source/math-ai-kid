@@ -50,7 +50,7 @@ function buildSessionSummary(data: Record<string, unknown> | undefined): Session
   return {
     summary: typeof data?.summary === "string" && data.summary.trim()
       ? data.summary.trim()
-      : "今天的小聊天先收到这里，脑脑记住了你的想法。",
+      : "今天的小聊天先收到这里，林老师记住了你的想法。",
     completionRate: normalizeCompletionRate(data?.completionRate),
     parentNote: typeof data?.parentNote === "string" ? data.parentNote : undefined,
   };
@@ -59,6 +59,10 @@ function buildSessionSummary(data: Record<string, unknown> | undefined): Session
 function getPendingInputType(toolCalls: ToolCallResult[]) {
   const inputTool = [...toolCalls].reverse().find((tc) => tc.name in INPUT_TOOL_TYPE_MAP);
   return inputTool ? (INPUT_TOOL_TYPE_MAP[inputTool.name] ?? null) : null;
+}
+
+function createRunId() {
+  return `run-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -113,6 +117,8 @@ interface AgentState {
   currentThemeId: DailyThemeId | null;
   currentQuestionId: string | null;
   currentProfile: ChildProfile | null;
+  activeRunId: string | null;
+  activeAbortController: AbortController | null;
   error: string | null;
   // 会话完成状态（end_activity 触发，不持久化）
   sessionComplete: boolean;
@@ -149,12 +155,17 @@ export const useAgentStore = create<AgentState>()(
       currentThemeId: null,
       currentQuestionId: null,
       currentProfile: null,
+      activeRunId: null,
+      activeAbortController: null,
       error: null,
       sessionComplete: false,
       sessionSummary: null,
       recentActivityIds: [],
 
       startSession: async (profileId, goalFocus = [], profile, options) => {
+        get().activeAbortController?.abort();
+        const runId = createRunId();
+        const abortController = new AbortController();
         const recentActivityIds = get().recentActivityIds;
         set({
           isStreaming: true,
@@ -167,6 +178,8 @@ export const useAgentStore = create<AgentState>()(
           currentThemeId: options?.themeId ?? null,
           currentQuestionId: options?.questionId ?? null,
           currentProfile: profile ?? null,
+          activeRunId: runId,
+          activeAbortController: abortController,
           sessionComplete: false,
           sessionSummary: null,
         });
@@ -185,7 +198,10 @@ export const useAgentStore = create<AgentState>()(
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(request),
+            signal: abortController.signal,
           });
+
+          if (get().activeRunId !== runId) return;
 
           if (!resp.ok) {
             set({ error: `HTTP ${resp.status}`, isStreaming: false });
@@ -197,6 +213,7 @@ export const useAgentStore = create<AgentState>()(
           let sawTurnEnd = false;
 
           await readSSEStream(resp, (event) => {
+            if (get().activeRunId !== runId) return;
             if (event.type === "session_start") {
               if (event.activityId) {
                 const current = get().recentActivityIds;
@@ -240,6 +257,7 @@ export const useAgentStore = create<AgentState>()(
               set({ error: event.message, isStreaming: false });
             }
           });
+          if (get().activeRunId !== runId) return;
           if (pendingSessionSummary && !sawTurnEnd && !get().sessionComplete) {
             set({
               sessionComplete: true,
@@ -248,7 +266,13 @@ export const useAgentStore = create<AgentState>()(
               pendingInputType: null,
             });
           }
+          set((state) => (
+            state.activeRunId === runId
+              ? { activeAbortController: null }
+              : {}
+          ));
         } catch (err) {
+          if (get().activeRunId !== runId || abortController.signal.aborted) return;
           set({ error: err instanceof Error ? err.message : "unknown", isStreaming: false });
         }
       },
@@ -266,6 +290,8 @@ export const useAgentStore = create<AgentState>()(
           isStreaming,
         } = get();
         if (!sessionId || isStreaming) return;
+        const runId = createRunId();
+        const abortController = new AbortController();
 
         // 把用户输入加入对话历史
         const userMsg: ConversationMessage = { role: "user", content: input };
@@ -278,6 +304,8 @@ export const useAgentStore = create<AgentState>()(
           conversation: newConversation,
           activeToolCalls: [],
           pendingInputType: null,
+          activeRunId: runId,
+          activeAbortController: abortController,
         });
 
         const request: AgentTurnRequest & {
@@ -309,7 +337,10 @@ export const useAgentStore = create<AgentState>()(
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(request),
+            signal: abortController.signal,
           });
+
+          if (get().activeRunId !== runId) return;
 
           if (!resp.ok) {
             set({ error: `HTTP ${resp.status}`, isStreaming: false });
@@ -321,6 +352,7 @@ export const useAgentStore = create<AgentState>()(
           let sawTurnEnd = false;
 
           await readSSEStream(resp, (event) => {
+            if (get().activeRunId !== runId) return;
             if (event.type === "tool_call") {
               newToolCalls.push(event.toolCall);
               set((s) => ({ activeToolCalls: [...s.activeToolCalls, event.toolCall] }));
@@ -348,6 +380,7 @@ export const useAgentStore = create<AgentState>()(
               set({ error: event.message, isStreaming: false });
             }
           });
+          if (get().activeRunId !== runId) return;
           if (pendingSessionSummary && !sawTurnEnd && !get().sessionComplete) {
             set({
               sessionComplete: true,
@@ -356,28 +389,38 @@ export const useAgentStore = create<AgentState>()(
               pendingInputType: null,
             });
           }
+          set((state) => (
+            state.activeRunId === runId
+              ? { activeAbortController: null }
+              : {}
+          ));
         } catch (err) {
+          if (get().activeRunId !== runId || abortController.signal.aborted) return;
           set({ error: err instanceof Error ? err.message : "unknown", isStreaming: false });
         }
       },
 
-      reset: () => set({
-        sessionId: null,
-        conversation: [],
-        activeToolCalls: [],
-        pendingInputType: null,
-        isStreaming: false,
-        currentGoalFocus: [],
-        requestedThemeId: null,
-        requestedQuestionId: null,
-        currentThemeId: null,
-        currentQuestionId: null,
-        currentProfile: null,
-        error: null,
-        sessionComplete: false,
-        sessionSummary: null,
-        recentActivityIds: [],
-      }),
+      reset: () => {
+        get().activeAbortController?.abort();
+        set({
+          sessionId: null,
+          conversation: [],
+          activeToolCalls: [],
+          pendingInputType: null,
+          isStreaming: false,
+          currentGoalFocus: [],
+          requestedThemeId: null,
+          requestedQuestionId: null,
+          currentThemeId: null,
+          currentQuestionId: null,
+          currentProfile: null,
+          activeRunId: null,
+          activeAbortController: null,
+          error: null,
+          sessionComplete: false,
+          sessionSummary: null,
+        });
+      },
     }),
     {
       name: "brainplay-agent-store",

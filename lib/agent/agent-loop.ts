@@ -25,6 +25,10 @@ import {
 } from "../training/pattern-activity-runtime";
 import { AI_TEACHER_NAME } from "./persona";
 import { getAgeInteractionBand } from "@/prompts/modules/age-adapter";
+import {
+  buildContextualInputPrompt,
+  validateAndRepairTurn,
+} from "./turn-validator";
 
 const DIALOGUE_TOOLS = FIRST_LAUNCH_TOOLS.filter((tool) => tool.function.name !== "think");
 
@@ -580,45 +584,6 @@ function appendObservationCallIfNeeded(
   return [...normalizedCalls, buildFallbackObservationCall(childInput, context)];
 }
 
-function buildDynamicFallbackInputPrompt(context: AgentLoopContext): {
-  prompt: string;
-  placeholder: string;
-  submitLabel: string;
-} {
-  switch (context.currentSubGoalId) {
-    case "explain-reasoning":
-      return {
-        prompt: "你先说一个你想到的“为什么”，林老师接着听。",
-        placeholder: "比如：我觉得可能是因为……",
-        submitLabel: "说说原因",
-      };
-    case "inductive-generalization":
-      return {
-        prompt: "你先说说你发现哪里在重复，或者哪里在变化。",
-        placeholder: "比如：我看到它一直在……",
-        submitLabel: "告诉林老师",
-      };
-    case "rule-creation":
-      return {
-        prompt: "如果你来定规则，你会先怎么安排？",
-        placeholder: "比如：我会让大家先……",
-        submitLabel: "定个规则",
-      };
-    case "hypothetical-thinking":
-      return {
-        prompt: "如果真的这样了，你觉得第一件事会发生什么？",
-        placeholder: "比如：可能会先……",
-        submitLabel: "接着想",
-      };
-    default:
-      return {
-        prompt: "你先说一个办法，林老师听你怎么想。",
-        placeholder: "比如：我会先……因为……",
-        submitLabel: "告诉林老师",
-      };
-  }
-}
-
 function buildAutoInputPrompt(
   context: AgentLoopContext,
   trainingIntent?: TrainingIntent,
@@ -628,7 +593,7 @@ function buildAutoInputPrompt(
   submitLabel: string;
 } {
   if (context.currentActivityId?.startsWith("dynamic-")) {
-    return buildDynamicFallbackInputPrompt(context);
+    return buildContextualInputPrompt(context);
   }
 
   return buildAgeAwareAutoInputPrompt(context, trainingIntent);
@@ -787,11 +752,7 @@ function buildAgeAwareAutoInputPrompt(
   }[ageBand];
 
   if ((context.scoringMode ?? "experimental_unscored") !== "formal_scored") {
-    return {
-      prompt: ageCopy.casualPrompt,
-      placeholder: ageCopy.casualPlaceholder,
-      submitLabel: ageCopy.casualSubmit,
-    };
+    return buildContextualInputPrompt(context);
   }
 
   const target = trainingIntent?.evidenceSlotTarget;
@@ -1128,6 +1089,14 @@ export async function* runAgentTurn(
         promptRuntime.assemblyState,
         effectiveTrainingIntent,
       );
+      structuredCalls = validateAndRepairTurn(structuredCalls, {
+        childInput,
+        conversation,
+        lastTurnToolCalls,
+        turnIndex,
+        currentActivityId: context.currentActivityId,
+        currentSubGoalId: context.currentSubGoalId,
+      }).calls;
       structuredCalls = appendObservationCallIfNeeded(
         structuredCalls,
         childInput,
@@ -1275,6 +1244,14 @@ export async function* runAgentTurn(
     promptRuntime.assemblyState,
     effectiveTrainingIntent,
   );
+  orchestrated = validateAndRepairTurn(orchestrated, {
+    childInput,
+    conversation,
+    lastTurnToolCalls,
+    turnIndex,
+    currentActivityId: context.currentActivityId,
+    currentSubGoalId: context.currentSubGoalId,
+  }).calls;
   orchestrated = appendObservationCallIfNeeded(
     orchestrated,
     childInput,

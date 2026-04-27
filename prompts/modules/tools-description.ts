@@ -24,9 +24,10 @@ export function toolsDescriptionModule(): string {
    - 无论孩子用什么语言输入，narrate 的 text 必须是中文
    - 示例：{ text: "你刚才说到“红黄”，林老师也看到了。我们再轻轻看一格。", voiceRole: "guide" }
 
-2. **show_choices** — 展示 2-4 个思路方向卡片
-   - 用途：孩子卡住或需要比较时，给两个可开口的思路方向，不给标准答案
-   - 示例：{ prompt: "你想先从哪里看？", choices: [{id:"a",label:"先看重复"},{id:"b",label:"先看变化"}] }
+2. **show_choices** — 展示默认 3 个思路方向卡片
+   - 用途：孩子卡住或需要比较时，给 3 个可开口的思路方向，不给标准答案
+   - 如果前面刚用 show_image 展示题目图，3 个选项必须延续同一角色、地点、光线、镜头距离和儿童绘本画风，并在每个 choice 写 imageAlt/generatePrompt
+   - 示例：{ prompt: "你想先从哪里看？", choices: [{id:"a",label:"先看重复"},{id:"b",label:"先看变化"},{id:"c",label:"先看空格"}] }
 
 3. **show_image** — 插入一张图片
    - 用途：展示示意图、场景图

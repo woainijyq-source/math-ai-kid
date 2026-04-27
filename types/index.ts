@@ -1,4 +1,4 @@
-import type { DailyThemeId } from "./daily";
+import type { DailyThemeId, ThinkingEvidence } from "./daily";
 
 export type TaskMode = "opponent" | "co-create" | "story";
 export type InputMode = "text" | "voice" | "choice" | "touch";
@@ -158,6 +158,7 @@ export interface MathEvidence {
   adaptationLevel?: number;
   nextSuggestedLevel?: number;
   nextSuggestedStageId?: ProgressionStageId;
+  thinkingEvidence?: ThinkingEvidence[];
 }
 
 export interface CompletedSessionPayload {

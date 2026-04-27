@@ -15,13 +15,14 @@ import { logCompletedSession } from "@/lib/data/client";
 import { getDailyQuestion } from "@/lib/daily/select-daily-question";
 import { assessAdaptiveConversation } from "@/lib/daily/theme-adaptation";
 import { UniversalRenderer } from "@/components/agent/universal-renderer";
+import type { ChoiceSceneContext } from "@/components/agent/choice-grid";
 import { InputBar } from "@/components/agent/input-bar";
 import { TEACHER_AVATAR_SRC, TEACHER_NAME, TeacherCharacter } from "@/components/agent/teacher-character";
 import { useTeacherMood } from "@/components/agent/use-teacher-mood";
 import { ChatBubble } from "@/components/agent/chat-bubble";
-import { Avatar } from "@/components/agent/avatar";
 import { AvatarPicker } from "@/components/agent/avatar-picker";
 import { ImageSlot } from "@/components/agent/image-slot";
+import { buildGeneratedImageCacheKey, getCachedGeneratedImage } from "@/components/agent/generated-image-client";
 import { useIsClient } from "@/hooks/use-is-client";
 import { primeAudioPlayback, useAudioUnlockPrompt } from "@/hooks/use-tts";
 import type { InputType, InputMeta, ToolCallResult } from "@/types/agent";
@@ -213,6 +214,36 @@ export function SessionPage({
 
     return messages;
   }, [conversation]);
+  const latestHistoryImageSceneContext = useMemo<ChoiceSceneContext | null>(() => {
+    const historyToolCalls: ToolCallResult[] = [];
+
+    for (const message of conversation) {
+      if (message.role !== "assistant" && message.role !== "tool") continue;
+      if (Array.isArray(message.toolCalls)) {
+        historyToolCalls.push(...(message.toolCalls as ToolCallResult[]));
+      }
+    }
+
+    const imageCall = [...historyToolCalls].reverse().find((tc) => tc.name === "show_image");
+    if (!imageCall) return null;
+
+    const args = imageCall.arguments as Record<string, unknown>;
+    const alt = typeof args.alt === "string" ? args.alt : undefined;
+    const generatePrompt = typeof args.generatePrompt === "string" ? args.generatePrompt : undefined;
+    const explicitImageUrl = typeof args.imageUrl === "string" ? args.imageUrl : undefined;
+    const cachedImageUrl = alt || generatePrompt
+      ? getCachedGeneratedImage(buildGeneratedImageCacheKey(alt ?? "", generatePrompt))
+      : null;
+    const referenceImageUrl = explicitImageUrl ?? cachedImageUrl ?? undefined;
+
+    if (!alt && !generatePrompt && !referenceImageUrl) return null;
+    return {
+      sourceId: imageCall.id,
+      alt,
+      generatePrompt,
+      referenceImageUrl,
+    };
+  }, [conversation]);
 
   useEffect(() => {
     if (!isClient || !activeProfile) return;
@@ -220,8 +251,9 @@ export function SessionPage({
     const goalKey = goals[0] ?? "";
     const currentGoalFocus = useAgentStore.getState().currentGoalFocus;
     const sessionGoalKey = currentGoalFocus[0] ?? "";
+    const hasActiveSessionState = Boolean(sessionId || isStreaming || conversation.length || activeToolCalls.length);
     if (
-      sessionId && (
+      hasActiveSessionState && (
         (goalKey && sessionGoalKey !== goalKey) ||
         (requestedThemeId ?? null) !== (initialThemeId ?? null) ||
         (requestedQuestionId ?? null) !== (initialQuestionId ?? null)
@@ -250,6 +282,8 @@ export function SessionPage({
     requestedQuestionId,
     currentThemeId,
     currentQuestionId,
+    conversation.length,
+    activeToolCalls.length,
   ]);
 
   useEffect(() => {
@@ -437,12 +471,11 @@ export function SessionPage({
   const activeTheme = getDailyThemeDefinition(activeThemeId);
   const activeQuestion = getDailyQuestion(activeQuestionId);
   const hasInlineInput = activeToolCalls.some((call) => INLINE_INPUT_TOOLS.has(call.name));
+  const hasChoiceInput = activeToolCalls.some((call) => call.name === "show_choices");
   const hideBottomInput = isStreaming || hasInlineInput;
 
   const visibleHistoryMessages = showHistory ? historyMessages : historyMessages.slice(-3);
   const hiddenHistoryCount = Math.max(0, historyMessages.length - visibleHistoryMessages.length);
-  const userTurnCount = conversation.filter((message) => message.role === "user").length;
-  const stageProgress = Math.min(3, Math.max(1, userTurnCount + (hasInlineInput ? 1 : 0)));
   const latestUserLine = [...conversation]
     .reverse()
     .find((message) => message.role === "user" && message.content?.trim())?.content?.trim();
@@ -460,45 +493,26 @@ export function SessionPage({
       />
 
       <motion.div
-        initial={{ opacity: 0, y: -16 }}
+        initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="bp-stage-topbar"
+        transition={{ duration: 0.28 }}
+        className="bp-stage-corner-actions"
       >
-        <div className="flex items-center gap-3">
-          <div className="bp-brand">
-            <Image
-              src={TEACHER_AVATAR_SRC}
-              alt={TEACHER_NAME}
-              width={40}
-              height={40}
-              className="bp-brand-mark p-1"
-            />
-            <div>
-              <span className="text-sm font-black text-foreground">BrainPlay</span>
-              <p className="hidden text-[11px] text-ink-soft sm:block">{TEACHER_NAME}陪聊中</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bp-stage-status">
-          {activeTheme && (
-            <span className={`bp-stage-theme-pill ${activeTheme.accentClass}`}>
-              {activeTheme.shortLabel}
-            </span>
-          )}
-          <span className="bp-stage-progress">{stageProgress} / 3 小选择</span>
-          {activeProfile && (
-            <span className="hidden items-center gap-2 rounded-full border border-white/70 bg-white/70 px-3 py-2 text-xs font-bold text-foreground shadow-sm sm:inline-flex">
-              <Avatar src={userAvatarSrc} fallback={userNickname[0]} size={22} className="bp-avatar-ring" />
-              {userNickname}
-            </span>
-          )}
-          <Link href="/" className="bp-button-secondary px-3 py-2 text-xs">首页</Link>
-        </div>
+        <Link href="/" className="bp-stage-teacher-float" aria-label={TEACHER_NAME}>
+          <Image
+            src={TEACHER_AVATAR_SRC}
+            alt={TEACHER_NAME}
+            width={52}
+            height={52}
+            className="bp-stage-teacher-float-mark object-cover"
+          />
+        </Link>
+        <Link href="/" className="bp-stage-back-round" aria-label="返回首页">
+          <span aria-hidden="true">←</span>
+        </Link>
       </motion.div>
 
-      <main className="bp-stage-shell">
+      <main className={`bp-stage-shell ${hasChoiceInput ? "bp-stage-shell-choice" : ""}`}>
         <section className={`bp-stage-world ${hasInlineInput ? "bp-stage-world-muted" : ""}`}>
           <div className="bp-stage-world-card">
             <div className="flex items-start justify-between gap-4">
@@ -537,12 +551,12 @@ export function SessionPage({
           </div>
         </section>
 
-        <div className="bp-stage-character">
+        <div className={`bp-stage-character ${hasChoiceInput ? "bp-stage-character-choice-hidden" : ""}`}>
           <TeacherCharacter mood={mood} isSpeaking={isSpeaking} size="large" />
           <div className="bp-stage-character-shadow" />
         </div>
 
-        <section className={`bp-stage-live ${hasInlineInput ? "bp-stage-live-focus" : ""}`}>
+        <section className={`bp-stage-live ${hasInlineInput ? "bp-stage-live-focus" : ""} ${hasChoiceInput ? "bp-stage-live-choice" : ""}`}>
           <div className="bp-stage-live-header">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-accent">Live</p>
@@ -594,6 +608,7 @@ export function SessionPage({
                   >
                     <UniversalRenderer
                       toolCalls={activeToolCalls}
+                      sceneContextFallback={latestHistoryImageSceneContext}
                       onUserInput={handleUserInput}
                     />
                   </motion.div>

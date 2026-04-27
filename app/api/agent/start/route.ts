@@ -10,6 +10,7 @@ import { inferMathStageFromRecentLogs } from "@/lib/daily/math-adaptation";
 import { buildDailyQuestionActivity, selectDailyQuestion } from "@/lib/daily/select-daily-question";
 import { buildDynamicConversationActivity } from "@/lib/daily/dynamic-conversation";
 import { selectAdaptiveQuestion } from "@/lib/daily/theme-adaptation";
+import { inferProjectTargetLevel } from "@/lib/daily/thinking-growth-progress";
 import { encodeSSE } from "@/lib/agent/stream-parser";
 import { buildContinuitySnapshot, listRecentSessionLogs } from "@/lib/data/session-log";
 import { selectActivityForSubGoal } from "@/lib/agent/activity-selector";
@@ -77,25 +78,25 @@ export async function POST(req: NextRequest) {
         };
         cleanupIdleActivitySessions({ profileId });
         evaluatePendingActivitySessions({ profileId });
-        const recentSessionLogs = listRecentSessionLogs(6, profileId);
+        const recentSessionLogs = listRecentSessionLogs(30, profileId);
         const mathStage = themeId === "math"
           ? inferMathStageFromRecentLogs(recentSessionLogs)
           : undefined;
         const mathStageGoalMapping = mathStage ? getMathStageGoalMapping(mathStage) : undefined;
-        const requestedDailyQuestion = questionId
-          ? themeId
-            ? selectAdaptiveQuestion({
+        const requestedDailyQuestion = themeId
+          ? selectAdaptiveQuestion({
+              themeId,
+              questionId,
+              recentLogs: recentSessionLogs,
+              rotationSeed: `${profileId}:${new Date().toISOString().slice(0, 10)}`,
+            })
+          : questionId
+            ? selectDailyQuestion({
                 themeId,
                 questionId,
-                recentLogs: recentSessionLogs,
                 rotationSeed: `${profileId}:${new Date().toISOString().slice(0, 10)}`,
               })
-            : selectDailyQuestion({
-                themeId,
-                questionId,
-                rotationSeed: `${profileId}:${new Date().toISOString().slice(0, 10)}`,
-              })
-          : undefined;
+            : undefined;
         const activeThemeId = requestedDailyQuestion?.themeId ?? themeId;
         const themeGoalMapping = getThemeGoalMapping(activeThemeId);
         const continuitySnapshot = buildContinuitySnapshot(
@@ -137,6 +138,7 @@ export async function POST(req: NextRequest) {
             currentActivity: buildDynamicConversationActivity({
               themeId: activeThemeId,
               turnIndex: 0,
+              growthLevel: activeThemeId ? inferProjectTargetLevel(activeThemeId, recentSessionLogs) : undefined,
               continuitySnapshot,
             }),
             currentActivityId: dynamicActivityId,

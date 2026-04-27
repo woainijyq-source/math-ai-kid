@@ -61,8 +61,51 @@ interface ParentDailyBrief {
   generatedAt: string;
 }
 
+interface ParentProjectLevel {
+  level: number;
+  title: string;
+  childGoal: string;
+  parentDescription: string;
+  evidenceExamples: string[];
+  nextStep: string;
+}
+
+interface ParentProjectPlan {
+  themeId: string;
+  label: string;
+  shortLabel: string;
+  internalFocus: string;
+  targetThinkingMoves: ParentThinkingMoveSummary[];
+  whyThisMatters: string;
+  scientificBasis: string[];
+  levels: ParentProjectLevel[];
+  currentLevel: number;
+  currentLevelTitle: string;
+  progressPercent: number;
+  status: "ready" | "observing" | "active" | "stretch" | "support";
+  statusLabel: string;
+  statusDetail: string;
+  recentEvidence: string[];
+  nextStep: string;
+  homePrompt: string;
+  nonFormalObservationNote: string;
+  lastPlayedAt?: string;
+  completedSessionCount: number;
+}
+
+interface ParentThinkingMoveSummary {
+  move: string;
+  label: string;
+  status: "seen" | "watching";
+  evidenceCount: number;
+  bestLevel: number;
+  latestEvidence?: string;
+  homePrompt: string;
+}
+
 interface ParentReportResponse {
   dailyBrief?: ParentDailyBrief | null;
+  projectPlans?: ParentProjectPlan[];
   skills: SkillSummary[];
   recent: ObservationRow[];
   report?: ParentTrainingReport;
@@ -100,6 +143,304 @@ function confidenceColor(confidence: number) {
       : "text-red-500";
 }
 
+function projectStatusClass(status: ParentProjectPlan["status"]) {
+  switch (status) {
+    case "stretch":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "support":
+      return "border-amber-200 bg-amber-50 text-amber-700";
+    case "active":
+      return "border-sky-200 bg-sky-50 text-sky-700";
+    case "observing":
+      return "border-violet-200 bg-violet-50 text-violet-700";
+    case "ready":
+    default:
+      return "border-slate-200 bg-slate-50 text-slate-600";
+  }
+}
+
+function getVisibleMoves(plan: ParentProjectPlan) {
+  const seen = plan.targetThinkingMoves.filter((move) => move.status === "seen");
+  return (seen.length > 0 ? seen : plan.targetThinkingMoves).slice(0, 5);
+}
+
+function getProjectEvidenceSummary(plan: ParentProjectPlan) {
+  const totalEvidence = plan.targetThinkingMoves.reduce((sum, move) => sum + move.evidenceCount, 0);
+  const repeatedMoveCount = plan.targetThinkingMoves.filter((move) => move.evidenceCount >= 2).length;
+
+  if (repeatedMoveCount > 0) {
+    return {
+      label: "线索较清楚",
+      detail: `已看到 ${totalEvidence} 条思维动作证据，其中 ${repeatedMoveCount} 个动作出现过多次。系统仍会换场景再确认。`,
+      className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    };
+  }
+
+  if (totalEvidence > 0) {
+    return {
+      label: "线索还偏薄",
+      detail: `已看到 ${totalEvidence} 条线索，但还需要轻支架或换场景复听，先不急着升层。`,
+      className: "border-amber-200 bg-amber-50 text-amber-700",
+    };
+  }
+
+  if (plan.recentEvidence.length > 0 || plan.completedSessionCount > 0) {
+    return {
+      label: "正在观察",
+      detail: "已有互动记录，但还没有形成稳定的思维动作证据。",
+      className: "border-violet-200 bg-violet-50 text-violet-700",
+    };
+  }
+
+  return {
+    label: "等待证据",
+    detail: "还没有真实互动记录，第一次会从轻量小场景开始。",
+    className: "border-slate-200 bg-slate-50 text-slate-600",
+  };
+}
+
+function moveChipClass(status: ParentThinkingMoveSummary["status"]) {
+  return status === "seen"
+    ? "border-accent/25 bg-accent text-white"
+    : "border-slate-200 bg-slate-50 text-ink-soft";
+}
+
+function LevelRail({ plan }: { plan: ParentProjectPlan }) {
+  return (
+    <div className="mt-4">
+      <div className="flex items-center justify-between gap-3 text-xs font-semibold text-ink-soft">
+        <span>正在观察：L{plan.currentLevel} / {plan.currentLevelTitle}</span>
+        <span>下一步看证据厚度</span>
+      </div>
+      <div className="mt-3 grid gap-2" style={{ gridTemplateColumns: `repeat(${plan.levels.length}, minmax(0, 1fr))` }}>
+        {plan.levels.map((level) => {
+          const active = level.level === plan.currentLevel;
+          const reached = level.level < plan.currentLevel;
+          return (
+            <div key={`${plan.themeId}-rail-${level.level}`} className="min-w-0">
+              <div
+                className={`h-2 rounded-full ${
+                  active || reached ? "bg-accent" : "bg-slate-100"
+                }`}
+              />
+              <p className={`mt-1 truncate text-[11px] font-black ${active ? "text-accent" : "text-ink-soft"}`}>
+                L{level.level}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-[11px] leading-5 text-ink-soft">
+        这里显示的是观察阶段，不是能力百分比或正式测评分数。
+      </p>
+    </div>
+  );
+}
+
+function RecentThinkingMovesPanel({ plans }: { plans: ParentProjectPlan[] }) {
+  const observedMoves = plans
+    .flatMap((plan) =>
+      plan.targetThinkingMoves
+        .filter((move) => move.status === "seen")
+        .map((move) => ({
+          ...move,
+          projectLabel: plan.shortLabel,
+        })),
+    )
+    .sort((left, right) => right.evidenceCount - left.evidenceCount || right.bestLevel - left.bestLevel);
+  const visibleMoves = observedMoves.slice(0, 6);
+  const nextPlans = plans
+    .filter((plan) => plan.completedSessionCount > 0 || plan.status !== "ready")
+    .slice(0, 3);
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+      <div className="rounded-[24px] border border-white/70 bg-white/70 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-accent">近期观察</p>
+            <h4 className="mt-1 text-lg font-black text-foreground">最近看到的思维动作</h4>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-ink-soft">
+            {visibleMoves.length > 0 ? `${visibleMoves.length} 项` : "观察中"}
+          </span>
+        </div>
+
+        {visibleMoves.length > 0 ? (
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {visibleMoves.map((move) => (
+              <div key={`${move.projectLabel}-${move.move}`} className="rounded-2xl border border-white/80 bg-white/75 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-black text-foreground">{move.label}</p>
+                  <span className="rounded-full bg-accent/10 px-2.5 py-1 text-[11px] font-black text-accent">
+                    {move.projectLabel} · 证据 {move.evidenceCount} 条 · L{move.bestLevel || 1}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs leading-5 text-ink-soft">
+                  {move.latestEvidence ? `孩子说：“${move.latestEvidence}”` : move.homePrompt}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4 rounded-2xl bg-white/75 px-3 py-3 text-sm leading-6 text-ink-soft">
+            还没有足够真实证据。第一次会先从轻量小场景开始，不急着下结论。
+          </p>
+        )}
+      </div>
+
+      <div className="rounded-[24px] border border-white/70 bg-white/70 p-4">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-accent">下一步</p>
+        <h4 className="mt-1 text-lg font-black text-foreground">下一步计划</h4>
+        <div className="mt-4 space-y-3">
+          {(nextPlans.length > 0 ? nextPlans : plans.slice(0, 2)).map((plan) => (
+            <div key={`next-${plan.themeId}`} className="rounded-2xl bg-white/75 px-3 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-black text-foreground">{plan.shortLabel}</p>
+                <span className={`rounded-full border px-2.5 py-1 text-[11px] font-black ${projectStatusClass(plan.status)}`}>
+                  {plan.statusLabel}
+                </span>
+              </div>
+              <p className="mt-2 text-xs leading-5 text-ink-soft">{plan.nextStep}</p>
+              <p className="mt-2 text-xs leading-5 text-foreground">在家接一句：{plan.homePrompt}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProjectPlanCard({ plan }: { plan: ParentProjectPlan }) {
+  const evidenceSummary = getProjectEvidenceSummary(plan);
+
+  return (
+    <article className="rounded-[28px] border border-white/70 bg-white/72 p-4 shadow-sm transition hover:bg-white/86">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-accent">{plan.shortLabel}</p>
+          <h4 className="mt-2 text-lg font-black leading-tight text-foreground">{plan.label}</h4>
+          <p className="mt-2 text-sm leading-6 text-ink-soft">{plan.internalFocus}</p>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <span className={`rounded-full border px-3 py-1 text-xs font-black ${projectStatusClass(plan.status)}`}>
+            {plan.statusLabel}
+          </span>
+          <span className={`rounded-full border px-3 py-1 text-[11px] font-black ${evidenceSummary.className}`}>
+            {evidenceSummary.label}
+          </span>
+        </div>
+      </div>
+
+      <LevelRail plan={plan} />
+
+      <div className="mt-4">
+        <p className="text-xs font-black text-foreground">思维动作</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {getVisibleMoves(plan).map((move) => (
+            <span
+              key={`${plan.themeId}-${move.move}`}
+              className={`rounded-full border px-3 py-1.5 text-xs font-black ${moveChipClass(move.status)}`}
+              title={move.latestEvidence ?? move.homePrompt}
+            >
+              {move.label}
+              {move.evidenceCount > 0 ? ` · ${move.evidenceCount}` : ""}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-2xl bg-white/72 px-3 py-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black text-foreground">证据厚度</p>
+            <p className="mt-1 text-xs leading-5 text-ink-soft">{evidenceSummary.detail}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3 rounded-2xl bg-white/72 px-3 py-3">
+        <p className="text-xs font-black text-foreground">最近真实证据</p>
+        {plan.recentEvidence.length > 0 ? (
+          <div className="mt-2 space-y-1">
+            {plan.recentEvidence.slice(0, 2).map((evidence, index) => (
+              <p key={`${plan.themeId}-evidence-${index}`} className="text-xs leading-5 text-ink-soft">
+                {index + 1}. {evidence}
+              </p>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-2 text-xs leading-5 text-ink-soft">还没有真实互动记录，第一次会从轻量小场景开始。</p>
+        )}
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <div className="rounded-2xl bg-white/72 px-3 py-3">
+          <p className="text-xs font-black text-foreground">下一步</p>
+          <p className="mt-2 text-xs leading-5 text-ink-soft">{plan.nextStep}</p>
+        </div>
+        <div className="rounded-2xl bg-white/72 px-3 py-3">
+          <p className="text-xs font-black text-foreground">在家可接</p>
+          <p className="mt-2 text-xs leading-5 text-ink-soft">{plan.homePrompt}</p>
+        </div>
+      </div>
+
+      <details className="mt-4 border-t border-white/80 pt-4">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl bg-white/70 px-3 py-2 text-xs font-black text-accent">
+          <span>查看路径依据和 L1-L4 说明</span>
+          <span aria-hidden="true">⌄</span>
+        </summary>
+        <div className="mt-4">
+          <p className="text-sm leading-6 text-foreground">{plan.whyThisMatters}</p>
+          <div className="mt-3 space-y-2">
+            {plan.scientificBasis.map((basis) => (
+              <p key={basis} className="rounded-2xl bg-white/72 px-3 py-2 text-xs leading-5 text-ink-soft">
+                {basis}
+              </p>
+            ))}
+          </div>
+
+          <div className="mt-4 grid gap-2">
+            {plan.levels.map((level) => {
+              const active = level.level === plan.currentLevel;
+              return (
+                <div
+                  key={`${plan.themeId}-${level.level}`}
+                  className={`rounded-2xl border px-3 py-3 ${
+                    active ? "border-accent/30 bg-accent/10" : "border-white/70 bg-white/56"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-black text-accent">L{level.level}</p>
+                      <p className="mt-1 text-sm font-black text-foreground">{level.title}</p>
+                    </div>
+                    {active && (
+                      <span className="rounded-full bg-accent px-2.5 py-1 text-[11px] font-black text-white">
+                        当前
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-foreground">{level.parentDescription}</p>
+                  <p className="mt-2 text-xs leading-5 text-ink-soft">
+                    看这些证据：{level.evidenceExamples.join(" / ")}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+
+          {plan.lastPlayedAt && (
+            <p className="mt-3 text-[11px] text-ink-soft">
+              最近一次：{new Date(plan.lastPlayedAt).toLocaleString("zh-CN")}
+            </p>
+          )}
+        </div>
+      </details>
+    </article>
+  );
+}
+
 function CollapsibleSection({
   title,
   kicker,
@@ -132,6 +473,7 @@ export default function ParentPage() {
   const [storedSkills, setStoredSkills] = useState<SkillSummary[]>([]);
   const [storedRecent, setStoredRecent] = useState<ObservationRow[]>([]);
   const [storedReport, setStoredReport] = useState<ParentTrainingReport | null>(null);
+  const [storedProjectPlans, setStoredProjectPlans] = useState<ParentProjectPlan[]>([]);
   const [storedSessions, setStoredSessions] = useState<ActivitySessionSummary[]>([]);
   const [storedExperimentalSessions, setStoredExperimentalSessions] = useState<ActivitySessionSummary[]>([]);
   const [loadedProfileId, setLoadedProfileId] = useState<string | null>(null);
@@ -147,6 +489,7 @@ export default function ParentPage() {
       .then((data: ParentReportResponse) => {
         if (cancelled) return;
         setStoredDailyBrief(data.dailyBrief ?? null);
+        setStoredProjectPlans(data.projectPlans ?? []);
         setStoredSkills(data.skills ?? []);
         setStoredRecent(data.recent ?? []);
         setStoredReport(data.report ?? null);
@@ -157,6 +500,7 @@ export default function ParentPage() {
       .catch(() => {
         if (cancelled) return;
         setStoredDailyBrief(null);
+        setStoredProjectPlans([]);
         setStoredSkills([]);
         setStoredRecent([]);
         setStoredReport(null);
@@ -173,12 +517,14 @@ export default function ParentPage() {
   const hasLoadedData = Boolean(hydratedProfile && loadedProfileId === hydratedProfile.id);
   const loading = Boolean(hydratedProfile && !hasLoadedData);
   const dailyBrief = hasLoadedData ? storedDailyBrief : null;
+  const projectPlans = hasLoadedData ? storedProjectPlans : [];
   const skills = hasLoadedData ? storedSkills : [];
   const recent = hasLoadedData ? storedRecent : [];
   const report = hasLoadedData ? storedReport : null;
   const activitySessions = hasLoadedData ? storedSessions : [];
   const experimentalSessions = hasLoadedData ? storedExperimentalSessions : [];
   const hasDeepData = Boolean(
+    projectPlans.some((plan) => plan.completedSessionCount > 0 || plan.recentEvidence.length > 0) ||
     (report?.items.length ?? 0) > 0 ||
     activitySessions.length > 0 ||
     experimentalSessions.length > 0 ||
@@ -226,6 +572,52 @@ export default function ParentPage() {
 
             {loading && (
               <p className="animate-pulse text-center text-sm text-ink-soft">正在整理今天的简报…</p>
+            )}
+
+            {!loading && projectPlans.length > 0 && (
+              <motion.section
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.03 }}
+                className="bp-panel rounded-[40px] p-6 sm:p-7"
+              >
+                <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                  <div>
+                    <p className="bp-kicker">科学成长路径</p>
+                    <h3 className="mt-3 text-2xl font-black leading-tight tracking-tight text-foreground">
+                      最近看到的思维动作、真实证据和下一步计划。
+                    </h3>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-soft">
+                      {projectPlans[0]?.nonFormalObservationNote ?? "这些内容是形成性观察，不是正式测评分数。"}
+                    </p>
+                  </div>
+                  <Link href="/session" className="bp-button-secondary px-4 py-2 text-sm">
+                    去聊 5 分钟
+                  </Link>
+                </div>
+
+                <div className="mt-5">
+                  <RecentThinkingMovesPanel plans={projectPlans} />
+                </div>
+
+                <details className="mt-5 rounded-[28px] border border-white/70 bg-white/60 p-4">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-accent">全部项目</p>
+                      <p className="mt-1 text-base font-black text-foreground">查看 5 个成长项目的阶段和依据</p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-black text-accent shadow-sm">
+                      展开 ⌄
+                    </span>
+                  </summary>
+
+                  <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                    {projectPlans.map((plan) => (
+                      <ProjectPlanCard key={plan.themeId} plan={plan} />
+                    ))}
+                  </div>
+                </details>
+              </motion.section>
             )}
 
             {!loading && !dailyBrief && !hasDeepData && (
